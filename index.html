@@ -710,6 +710,17 @@
     </div>
 
     <div class="ayar-card">
+      <h4><i class="fas fa-lock me-2" style="color:#dc2626;"></i>YÖNETİM Giriş Şifresi</h4>
+      <p style="margin-bottom:14px;">Şube cihazlarının YÖNETİM paneline erişimini engelleyen şifre. Varsayılan: <strong>1881</strong></p>
+      <div style="display:flex;gap:10px;align-items:center;max-width:340px;">
+        <input type="password" id="yonetim-pin-input" class="form-control-s" placeholder="Yeni şifre girin (min. 4 karakter)" style="flex:1;">
+        <button class="btn-s btn-danger-s" onclick="yonetimPinDegistir()" style="white-space:nowrap;">
+          <i class="fas fa-key"></i> Kaydet
+        </button>
+      </div>
+    </div>
+
+    <div class="ayar-card">
       <h4><i class="fas fa-info-circle me-2 text-blue"></i>Kural Nasıl Çalışır?</h4>
       <p style="margin-bottom:0;">Müşterinin toplam birikimli kaybı hesaplanır. Bu kayıp hangi aralığa giriyorsa o aralığın discount yüzdesi uygulanır.<br><br>
       <strong>Örnek:</strong> 25.000–50.000 TL = %10 kuralında, müşteri 40.000 TL kaybettiyse hakediş = 40.000 × %10 = 4.000 TL olur.<br><br>
@@ -723,7 +734,7 @@
 <div id="toast"><i class="fas fa-check me-2"></i><span id="toast-msg"></span></div>
 
 <!-- LOADING OVERLAY -->
-<div id="loading-overlay" style="position:fixed;inset:0;background:rgba(26,38,66,.93);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;">
+<div id="loading-overlay" style="position:fixed;inset:0;background:rgba(26,38,66,.93);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;">
   <style>@keyframes fbspin{to{transform:rotate(360deg)}}</style>
   <div style="width:52px;height:52px;border:5px solid rgba(255,255,255,.12);border-top-color:#3b82f6;border-radius:50%;animation:fbspin 1s linear infinite;"></div>
   <div style="color:#fff;font-size:17px;font-weight:600;">Firebase'e Bağlanıyor...</div>
@@ -751,8 +762,34 @@
       <button onclick="subeSeç('İTİMAT')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
         <i class="fas fa-store" style="font-size:16px;"></i> İTİMAT
       </button>
-      <button onclick="subeSeç('YÖNETİM')" style="background:#1a2642;border:2px solid #1a2642;color:#fff;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-crown" style="font-size:16px;color:#fbbf24;"></i> YÖNETİM <span style="font-size:12px;opacity:.6;font-weight:500;">(Salt Okunur)</span>
+      <button onclick="yonetimSifreGoster()" style="background:#1a2642;border:2px solid #1a2642;color:#fff;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-crown" style="font-size:16px;color:#fbbf24;"></i> YÖNETİM <span style="font-size:12px;opacity:.6;font-weight:500;"><i class="fas fa-lock" style="font-size:11px;"></i> Şifreli</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- YÖNETİM ŞİFRE MODAL -->
+<div id="yonetim-sifre-modal" style="display:none;position:fixed;inset:0;background:rgba(26,38,66,.97);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:36px 40px;max-width:360px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.4);">
+    <div style="width:58px;height:58px;background:linear-gradient(135deg,#1a2642,#2563eb);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:24px;">
+      <i class="fas fa-crown" style="color:#fbbf24;"></i>
+    </div>
+    <h4 style="margin-bottom:6px;font-weight:800;color:#1e2642;font-size:18px;">YÖNETİM Girişi</h4>
+    <p style="color:#64748b;font-size:13px;margin-bottom:22px;">Şifreyi girin</p>
+    <input type="password" id="yonetim-sifre-input" class="form-control-s" placeholder="••••"
+      style="text-align:center;font-size:22px;letter-spacing:6px;margin-bottom:10px;"
+      onkeydown="if(event.key==='Enter') yonetimSifreKontrol()"
+      oninput="document.getElementById('yonetim-sifre-hata').style.display='none'">
+    <div id="yonetim-sifre-hata" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-bottom:10px;">
+      <i class="fas fa-times-circle"></i> Hatalı şifre!
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button onclick="yonetimSifreKapat()" style="flex:1;background:#f1f5f9;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;color:#64748b;">
+        İptal
+      </button>
+      <button onclick="yonetimSifreKontrol()" style="flex:1;background:#1a2642;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;color:#fff;">
+        <i class="fas fa-unlock"></i> Giriş
       </button>
     </div>
   </div>
@@ -789,7 +826,11 @@ function saveData(data) {
     _isSaving = true;
     db.collection('data').doc('main').set(data)
       .then(() => { _isSaving = false; })
-      .catch(e => { _isSaving = false; console.error('Firestore yazma hatası (data):', e); });
+      .catch(e => {
+        _isSaving = false;
+        console.error('Firestore yazma hatası (data):', e);
+        toast('Kayıt başarısız! İnternet bağlantınızı kontrol edin.', 'error');
+      });
   }
 }
 
@@ -869,6 +910,34 @@ async function subeSeç(sube) {
 function subeSeciciAc() {
   const overlay = document.getElementById('sube-secici');
   if (overlay) overlay.style.display = 'flex';
+}
+
+// ---- YÖNETİM Şifre Koruması ----
+function yonetimSifreGoster() {
+  const modal = document.getElementById('yonetim-sifre-modal');
+  if (!modal) return;
+  document.getElementById('yonetim-sifre-input').value = '';
+  document.getElementById('yonetim-sifre-hata').style.display = 'none';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('yonetim-sifre-input').focus(), 100);
+}
+
+function yonetimSifreKapat() {
+  const modal = document.getElementById('yonetim-sifre-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function yonetimSifreKontrol() {
+  const girilen = document.getElementById('yonetim-sifre-input').value;
+  const dogru = (appAyarlar && appAyarlar.yonetimPin) ? appAyarlar.yonetimPin : '1881';
+  if (girilen === dogru) {
+    yonetimSifreKapat();
+    subeSeç('YÖNETİM');
+  } else {
+    document.getElementById('yonetim-sifre-hata').style.display = 'block';
+    document.getElementById('yonetim-sifre-input').value = '';
+    document.getElementById('yonetim-sifre-input').focus();
+  }
 }
 
 function _subeAdiGuncelle() {
@@ -1157,10 +1226,13 @@ function renderDashboard() {
     `;
   }
 
-  // Filtrelenmiş oturumlar
-  const filtreOturumlar = dashboardSubeFilter
-    ? data.oturumlar.filter(o => o.sube === dashboardSubeFilter)
+  // Filtrelenmiş oturumlar — şube izolasyonu + dashboard filtresi
+  const subeOturumlar = aktifSube !== 'YÖNETİM'
+    ? data.oturumlar.filter(o => o.sube === aktifSube)
     : data.oturumlar;
+  const filtreOturumlar = dashboardSubeFilter
+    ? subeOturumlar.filter(o => o.sube === dashboardSubeFilter)
+    : subeOturumlar;
 
   let toplamOynanan = 0, toplamKazanc = 0, toplamVerilenDiscount = 0;
   for (const o of filtreOturumlar) {
@@ -1174,7 +1246,7 @@ function renderDashboard() {
   const toplamKayip = Math.max(0, -toplamNet);
   const filtreMusteri = dashboardSubeFilter
     ? [...new Set(filtreOturumlar.map(o => o.musteriId))].length
-    : data.musteriler.length;
+    : getSubeMusterileri(data).length;
 
   document.getElementById('dashboard-stats').innerHTML = `
     <div class="card-s">
@@ -1222,7 +1294,7 @@ function renderDashboard() {
   }
 
   // Discount durumu
-  const musteriDiscount = data.musteriler.map(m => {
+  const musteriDiscount = getSubeMusterileri(data).map(m => {
     const t = getMusteriToplamlar(m.id);
     const h = hesaplaHakedis(t.toplamKayip);
     return { m, t, h, kalan: h.tutar - t.toplamVerilenDiscount };
@@ -1249,7 +1321,7 @@ function renderDashboard() {
 // Şubeye göre müşteri filtrele (YÖNETİM hepsini görür)
 function getSubeMusterileri(data) {
   if (aktifSube === 'YÖNETİM') return data.musteriler;
-  return data.musteriler.filter(m => !m.sube || m.sube === aktifSube);
+  return data.musteriler.filter(m => m.sube === aktifSube);
 }
 
 // ===================== MÜŞTERİLER =====================
@@ -2322,7 +2394,10 @@ function raporGoster() {
   const ayOturumlar = data.oturumlar.filter(o => {
     if (!o.tarih) return false;
     const d = new Date(o.tarih + 'T00:00:00');
-    return d.getMonth() + 1 === ay && d.getFullYear() === yil;
+    if (d.getMonth() + 1 !== ay || d.getFullYear() !== yil) return false;
+    // Şube izolasyonu: YÖNETİM dışı şubeler yalnızca kendi oturumlarını görür
+    if (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube) return false;
+    return true;
   });
 
   let ayOynanan = 0, ayKazanc = 0, ayDiscount = 0;
@@ -2443,7 +2518,7 @@ function renderGecmis() {
   const filterSel = document.getElementById('gecmis-musteri-filter');
   const mevcut = filterSel.value;
   filterSel.innerHTML = '<option value="">Tüm Müşteriler</option>' +
-    data.musteriler.map(m => `<option value="${m.id}" ${m.id===mevcut?'selected':''}>${m.adSoyad}</option>`).join('');
+    getSubeMusterileri(data).map(m => `<option value="${m.id}" ${m.id===mevcut?'selected':''}>${m.adSoyad}</option>`).join('');
   gecmisGoster();
 }
 
@@ -2452,6 +2527,8 @@ function gecmisGoster() {
   const filterId   = document.getElementById('gecmis-musteri-filter').value;
   const filtreSube = (document.getElementById('gecmis-sube-filter') || {}).value || '';
   let oturumlar = [...data.oturumlar];
+  // Şube izolasyonu: YÖNETİM dışı şubeler yalnızca kendi oturumlarını görür
+  if (aktifSube !== 'YÖNETİM') oturumlar = oturumlar.filter(o => o.sube === aktifSube);
   if (filterId)   oturumlar = oturumlar.filter(o => o.musteriId === filterId);
   if (filtreSube) oturumlar = oturumlar.filter(o => o.sube === filtreSube);
   oturumlar.sort((a,b) => b.tarih.localeCompare(a.tarih));
@@ -2485,6 +2562,11 @@ function gecmisGoster() {
 let kuralTemp = []; // geçici düzenleme listesi
 
 function renderAyarlar() {
+  if (aktifSube !== 'YÖNETİM') {
+    showPage('dashboard');
+    toast('Ayarlar sadece YÖNETİM tarafından değiştirilebilir!', 'error');
+    return;
+  }
   const { kurallar } = getAyarlar();
   kuralTemp = kurallar.map(k => ({ ...k }));
   kuralListesiGoster();
@@ -2554,6 +2636,16 @@ function kuralSil(i) {
   kuralListesiGoster();
 }
 
+function yonetimPinDegistir() {
+  const yeni = document.getElementById('yonetim-pin-input').value.trim();
+  if (!yeni || yeni.length < 4) { toast('Şifre en az 4 karakter olmalı!', 'error'); return; }
+  const ayarlar = getAyarlar();
+  ayarlar.yonetimPin = yeni;
+  saveAyarlar(ayarlar);
+  document.getElementById('yonetim-pin-input').value = '';
+  toast('YÖNETİM şifresi güncellendi ✓');
+}
+
 function ayarlariKaydet() {
   if (kuralTemp.length === 0) {
     toast('En az bir kural olmalı!', 'error'); return;
@@ -2565,7 +2657,7 @@ function ayarlariKaydet() {
   }
   // minKayip'e göre sırala
   kuralTemp.sort((a, b) => a.minKayip - b.minKayip);
-  saveAyarlar({ kurallar: kuralTemp });
+  saveAyarlar({ ...appAyarlar, kurallar: kuralTemp });
   kuralListesiGoster();
   toast('Discount kuralları kaydedildi ✓');
 }
@@ -2596,6 +2688,13 @@ window.addEventListener('DOMContentLoaded', () => {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/solibet-discount/sw.js').catch(() => {});
   }
+
+  // Sayfa kapatılınca Firestore listener'ları temizle
+  window.addEventListener('beforeunload', () => {
+    if (_unsubMain)    _unsubMain();
+    if (_unsubAyarlar) _unsubAyarlar();
+    if (_unsubLive)    _unsubLive();
+  });
 });
 </script>
 </body>
