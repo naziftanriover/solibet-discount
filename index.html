@@ -267,9 +267,10 @@
     @media (max-width: 1024px) {
       #sidebar { display: none !important; }
       #bottom-nav { display: block; }
+      #mobile-sube-bar { display: flex !important; }
       #main {
         margin-left: 0 !important;
-        padding: 16px 14px 80px;
+        padding: 52px 14px 80px;
         overflow-x: hidden;
       }
       .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr !important; gap: 10px; }
@@ -415,6 +416,17 @@
       Nazif TANRIÖVER tarafından tasarlanmıştır
     </div>
   </div>
+</div>
+
+<!-- MOBİL ÜST ŞUBE ÇUBUĞU -->
+<div id="mobile-sube-bar" style="display:none; position:fixed; top:0; left:0; right:0; z-index:140; background:#1a2642; padding:8px 14px; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.1);">
+  <div style="display:flex; align-items:center; gap:7px;">
+    <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;" id="m-firebase-dot"></span>
+    <span style="color:#fff; font-size:13px; font-weight:700;" id="m-aktif-sube-adi">—</span>
+  </div>
+  <button onclick="subeSeciciAc()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+    <i class="fas fa-exchange-alt"></i> Şube Değiştir
+  </button>
 </div>
 
 <!-- MOBİL ALT NAVIGASYON -->
@@ -862,8 +874,12 @@ function subeSeciciAc() {
 function _subeAdiGuncelle() {
   const el = document.getElementById('aktif-sube-adi');
   if (el) el.textContent = aktifSube || '—';
+  const mEl = document.getElementById('m-aktif-sube-adi');
+  if (mEl) mEl.textContent = aktifSube || '—';
   const dot = document.getElementById('firebase-dot');
   if (dot) dot.style.background = db ? '#22c55e' : '#f59e0b';
+  const mDot = document.getElementById('m-firebase-dot');
+  if (mDot) mDot.style.background = db ? '#22c55e' : '#f59e0b';
 
   // YÖNETİM: giriş ekranını ve butonları gizle
   const isYonetim = aktifSube === 'YÖNETİM';
