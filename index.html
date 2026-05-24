@@ -1246,15 +1246,22 @@ function renderDashboard() {
   }
 }
 
+// Şubeye göre müşteri filtrele (YÖNETİM hepsini görür)
+function getSubeMusterileri(data) {
+  if (aktifSube === 'YÖNETİM') return data.musteriler;
+  return data.musteriler.filter(m => !m.sube || m.sube === aktifSube);
+}
+
 // ===================== MÜŞTERİLER =====================
 function renderMusteriler() {
   const data = getData();
   const el = document.getElementById('musteri-listesi');
-  if (data.musteriler.length === 0) {
+  const musteriler = getSubeMusterileri(data);
+  if (musteriler.length === 0) {
     el.innerHTML = `<div class="card-s empty-state"><i class="fas fa-users"></i><p>Henüz müşteri eklenmemiş.</p><button class="btn-s btn-primary-s mt-3" onclick="openMusteriModal()"><i class="fas fa-plus"></i> İlk Müşteriyi Ekle</button></div>`;
     return;
   }
-  el.innerHTML = data.musteriler.map(m => {
+  el.innerHTML = musteriler.map(m => {
     const t = getMusteriToplamlar(m.id);
     const h = hesaplaHakedis(t.toplamKayip);
     const kalan = h.tutar - t.toplamVerilenDiscount;
@@ -1351,7 +1358,8 @@ function musteriKaydet() {
       id: uid(), adSoyad: ad,
       telefon: document.getElementById('m-telefon').value.trim(),
       kayitTarih: document.getElementById('m-kayittarih').value || new Date().toISOString().split('T')[0],
-      not: document.getElementById('m-not').value.trim()
+      not: document.getElementById('m-not').value.trim(),
+      sube: aktifSube || ''
     });
     saveData(data);
     closeMusteriModal();
@@ -1686,7 +1694,7 @@ function renderAktifTabIcerik() {
   const tab = getAktifTab();
   if (!tab) return;
   const data = getData();
-  const musteriOptions = data.musteriler.map(m =>
+  const musteriOptions = getSubeMusterileri(data).map(m =>
     `<option value="${m.id}" ${m.id === tab.musteriId ? 'selected' : ''}>${m.adSoyad}</option>`
   ).join('');
 
