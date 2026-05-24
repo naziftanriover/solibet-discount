@@ -263,6 +263,23 @@
     }
     .bnav-item.bnav-plus i { font-size: 22px; }
 
+    /* ===================== iOS & ANDROID GLOBAL ===================== */
+    * { -webkit-tap-highlight-color: transparent; }
+    body { -webkit-overflow-scrolling: touch; overscroll-behavior-y: none; }
+    /* iOS: input'larda otomatik zoom engeli — font 16px altında zoom yapar */
+    @media (max-width: 1024px) {
+      input, select, textarea {
+        font-size: 16px !important;
+        transform-origin: left top;
+      }
+      /* görsel küçültme: 16px font ama 13px gibi görünsün */
+      .form-control-s, .form-select-s {
+        font-size: 16px !important;
+        padding: 10px 12px;
+      }
+      .bet-table input, .bet-table select { font-size: 16px !important; }
+    }
+
     /* ===================== RESPONSIVE ===================== */
     @media (max-width: 1024px) {
       #sidebar { display: none !important; }
@@ -270,7 +287,8 @@
       #mobile-sube-bar { display: flex !important; }
       #main {
         margin-left: 0 !important;
-        padding: 52px 14px 80px;
+        /* env(safe-area-inset-top) iPhone notch için */
+        padding: calc(56px + env(safe-area-inset-top, 0px)) 14px calc(84px + env(safe-area-inset-bottom, 0px));
         overflow-x: hidden;
       }
       .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr !important; gap: 10px; }
@@ -288,7 +306,7 @@
       .tab-bar { padding: 6px 6px 0; }
       .tab-item { padding: 7px 12px; font-size: 12px; }
       .tab-body { padding: 14px; }
-      #toast { bottom: 76px; right: 14px; left: 14px; text-align: center; }
+      #toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); right: 14px; left: 14px; text-align: center; }
       .kural-row { grid-template-columns: 1fr 1fr 44px; }
       .kural-header { grid-template-columns: 1fr 1fr 44px; }
       #dashboard-sube-filter { gap: 6px; }
@@ -300,8 +318,22 @@
       #rapor-ay, #rapor-yil, #gecmis-sube-filter, #gecmis-musteri-filter { width: 100% !important; }
     }
     @media (max-width: 480px) {
-      #main { padding: 12px 10px 80px; }
-      .stat-val { font-size: 19px; }
+      #main { padding: calc(56px + env(safe-area-inset-top, 0px)) 10px calc(84px + env(safe-area-inset-bottom, 0px)); }
+      .stat-val { font-size: 18px; }
+      .btn-s { font-size: 11px; padding: 7px 11px; }
+      .page-header h2 { font-size: 15px; }
+      .card-s { padding: 12px 10px; }
+      .modal-box { padding: 16px 12px; }
+      .tab-item { padding: 6px 10px; font-size: 11px; }
+      .bnav-item { padding: 4px 8px; font-size: 9px; min-width: 48px; }
+      .bnav-item i { font-size: 17px; }
+      .bnav-item.bnav-plus { padding: 7px 14px; }
+      .hakedis-panel { padding: 12px 10px; }
+    }
+    @media (max-width: 360px) {
+      .bnav-item { padding: 4px 5px; font-size: 8.5px; min-width: 40px; }
+      .bnav-item i { font-size: 16px; }
+      .btn-s { font-size: 10.5px; padding: 6px 9px; gap: 4px; }
     }
 
     /* Ayarlar */
@@ -419,7 +451,7 @@
 </div>
 
 <!-- MOBİL ÜST ŞUBE ÇUBUĞU -->
-<div id="mobile-sube-bar" style="display:none; position:fixed; top:0; left:0; right:0; z-index:140; background:#1a2642; padding:8px 14px; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.1);">
+<div id="mobile-sube-bar" style="display:none; position:fixed; top:0; left:0; right:0; z-index:140; background:#1a2642; min-height:44px; padding: calc(6px + env(safe-area-inset-top, 0px)) 12px 6px; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.1);" >
   <div style="display:flex; align-items:center; gap:7px;">
     <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;" id="m-firebase-dot"></span>
     <span style="color:#fff; font-size:13px; font-weight:700;" id="m-aktif-sube-adi">—</span>
@@ -817,8 +849,20 @@ let _unsubLive    = null;
 // Kendi Firestore yazımızın snapshot'ını bastırmak için flag
 let _isSaving = false;
 
-function getData()    { return (appData && typeof appData === 'object') ? appData : { musteriler: [], oturumlar: [] }; }
-function getAyarlar() { return appAyarlar; }
+// Canlı taslak debounce zamanlayıcı (subeSeç şubelendirme için yukarı taşındı)
+let liveDraftTimer = null;
+
+function getData() {
+  if (!appData || typeof appData !== 'object') appData = { musteriler: [], oturumlar: [] };
+  if (!Array.isArray(appData.musteriler)) appData.musteriler = [];
+  if (!Array.isArray(appData.oturumlar))  appData.oturumlar  = [];
+  return appData;
+}
+function getAyarlar() {
+  if (!appAyarlar || typeof appAyarlar !== 'object') appAyarlar = { kurallar: VARSAYILAN_KURALLAR };
+  if (!Array.isArray(appAyarlar.kurallar)) appAyarlar.kurallar = VARSAYILAN_KURALLAR;
+  return appAyarlar;
+}
 
 function saveData(data) {
   appData = data;
@@ -886,7 +930,13 @@ async function subeSeç(sube) {
   // Şube değişince uygulama durumunu sıfırla
   dashboardSubeFilter = '';
   currentMusteriId = null;
+  currentOturumId = null;
   tabs = []; aktifTabId = null;
+  appLive = {}; // canlı taslakları temizle, yeni snapshot yeniler
+  // Bekleyen canlı taslak zamanlayıcısını iptal et (eski şubeye yazmasın)
+  if (liveDraftTimer) { clearTimeout(liveDraftTimer); liveDraftTimer = null; }
+  // Açık modalları kapat
+  document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
 
   // Firestore'a bağlan ve dinleyicileri yenile
   if (db) {
@@ -1134,10 +1184,12 @@ function fmtNum(n) {
   return new Intl.NumberFormat('tr-TR').format(n);
 }
 
-function getMusteriToplamlar(musteriId) {
+function getMusteriToplamlar(musteriId, subeFilter) {
   const data = getData();
   let oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId);
   if (aktifSube !== 'YÖNETİM') oturumlar = oturumlar.filter(o => o.sube === aktifSube);
+  // YÖNETİM ek şube filtresi (dashboard buton bazlı görünüm için)
+  if (subeFilter) oturumlar = oturumlar.filter(o => o.sube === subeFilter);
   let toplamOynanan = 0, toplamKazanc = 0, toplamVerilenDiscount = 0;
   for (const o of oturumlar) {
     toplamVerilenDiscount += o.verilenDiscount || 0;
@@ -1188,9 +1240,11 @@ let currentMusteriId = null;
 let currentOturumId = null;
 
 function showPage(page, musteriId) {
+  const pageEl = document.getElementById('page-' + page);
+  if (!pageEl) { console.warn('Sayfa bulunamadı:', page); return; }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item-s').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
+  pageEl.classList.add('active');
   document.querySelectorAll('.nav-item-s').forEach(n => {
     if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + page + "'"))
       n.classList.add('active');
@@ -1254,8 +1308,10 @@ function renderDashboard() {
   }
   const toplamNet  = toplamKazanc - toplamOynanan;
   const toplamKayip = Math.max(0, -toplamNet);
+  // Müşteri sayısı: dashboardSubeFilter aktifse o şubedeki kayıtlı müşterileri say,
+  // yoksa aktif şubenin (veya YÖNETİM tümünün) müşterilerini say
   const filtreMusteri = dashboardSubeFilter
-    ? [...new Set(filtreOturumlar.map(o => o.musteriId))].length
+    ? data.musteriler.filter(m => m.sube === dashboardSubeFilter).length
     : getSubeMusterileri(data).length;
 
   document.getElementById('dashboard-stats').innerHTML = `
@@ -1282,7 +1338,7 @@ function renderDashboard() {
   `;
 
   // Son girişler
-  const son = [...filtreOturumlar].sort((a,b) => b.tarih.localeCompare(a.tarih)).slice(0, 6);
+  const son = [...filtreOturumlar].sort((a,b) => (b.tarih||'').localeCompare(a.tarih||'')).slice(0, 6);
   if (son.length === 0) {
     document.getElementById('son-giris-count').textContent = '';
     document.getElementById('son-girisler').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i>Henüz giriş yok</div>';
@@ -1303,9 +1359,12 @@ function renderDashboard() {
     }).join('');
   }
 
-  // Discount durumu
-  const musteriDiscount = getSubeMusterileri(data).map(m => {
-    const t = getMusteriToplamlar(m.id);
+  // Discount durumu — YÖNETİM şube filtresi varsa o şubenin müşterilerine indirge
+  const discountMusteriler = dashboardSubeFilter
+    ? data.musteriler.filter(m => m.sube === dashboardSubeFilter)
+    : getSubeMusterileri(data);
+  const musteriDiscount = discountMusteriler.map(m => {
+    const t = getMusteriToplamlar(m.id, dashboardSubeFilter || null);
     const h = hesaplaHakedis(t.toplamKayip);
     return { m, t, h, kalan: h.tutar - t.toplamVerilenDiscount };
   }).filter(x => x.h.band > 0).sort((a,b) => b.kalan - a.kalan);
@@ -1455,7 +1514,14 @@ function renderDetay(musteriId) {
   currentMusteriId = musteriId;
   const data = getData();
   const m = data.musteriler.find(x => x.id === musteriId);
-  if (!m) return;
+  if (!m) {
+    // Müşteri silinmiş olabilir (başka cihazdan)
+    if (currentPage === 'detay') {
+      toast('Müşteri bulunamadı', 'error');
+      showPage('musteriler');
+    }
+    return;
+  }
   if (aktifSube !== 'YÖNETİM' && m.sube !== aktifSube) {
     toast('Bu müşteriye erişim izni yok!', 'error');
     showPage('musteriler');
@@ -1525,7 +1591,7 @@ function renderDetay(musteriId) {
   `;
 
   // Geçmiş — aylık gruplu, gün bazında özet
-  const oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId).sort((a,b) => b.tarih.localeCompare(a.tarih));
+  const oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId && o.tarih).sort((a,b) => (b.tarih||'').localeCompare(a.tarih||''));
   if (oturumlar.length === 0) {
     document.getElementById('detay-gecmis').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i>Henüz bahis girişi yok</div>';
   } else {
@@ -1649,11 +1715,13 @@ function ekDiscountEkle(musteriId) {
   const val = parseFloat(document.getElementById('ek-discount-input').value) || 0;
   if (val <= 0) { toast('Geçerli tutar giriniz!', 'error'); return; }
   // Boş bir "sadece discount" oturumu ekle
+  // YÖNETİM müşterinin kendi şubesine yazsın, sube kullanıcısı kendi şubesine yazsın
+  const oturumSube = (aktifSube === 'YÖNETİM') ? (m.sube || '') : (aktifSube || '');
   data.oturumlar.push({
     id: uid(), musteriId, tarih: new Date().toISOString().split('T')[0],
     bahisler: [], toplamOynanan: 0, toplamNet: 0,
     verilenDiscount: val, not: 'Manuel discount eklendi',
-    sube: aktifSube || ''
+    sube: oturumSube
   });
   saveData(data);
   toast(`${fmt(val)} discount eklendi ✓`);
@@ -1697,6 +1765,12 @@ function yeniTab(musteriId) {
 }
 
 function renderGiris(musteriId) {
+  // YÖNETİM giriş yapamaz — sadece izleme
+  if (aktifSube === 'YÖNETİM') {
+    toast('YÖNETİM panelinden bahis girişi yapılamaz!', 'error');
+    showPage('dashboard');
+    return;
+  }
   // Mevcut sekme yoksa ilk sekmeyi aç
   if (tabs.length === 0) {
     const t = yeniTab(musteriId || '');
@@ -2039,7 +2113,7 @@ function updateToplam() {
 }
 
 // ---- Canlı Taslak (Live Draft) ----
-let liveDraftTimer = null;
+// liveDraftTimer yukarıda module başında tanımlı
 
 function scheduleLiveDraft() {
   if (!aktifSube || aktifSube === 'YÖNETİM' || !db) return;
@@ -2080,8 +2154,12 @@ function pushLiveDraft() {
 
 function clearLiveDraft() {
   if (!db || !aktifSube || aktifSube === 'YÖNETİM') return;
+  // Firestore field'ı tamamen sil (null bırakıp dökümanı şişirme)
+  const DeleteFV = (firebase && firebase.firestore && firebase.firestore.FieldValue && firebase.firestore.FieldValue.delete)
+    ? firebase.firestore.FieldValue.delete()
+    : null;
   db.collection('data').doc('live').set(
-    { [aktifSube]: null },
+    { [aktifSube]: DeleteFV || null },
     { merge: true }
   ).catch(() => {});
 }
@@ -2295,9 +2373,9 @@ function oturumKaydet() {
   const verilenDiscount = parseFloat(tab.verilenDiscount) || 0;
   const data = getData();
 
-  // Aynı gün için zaten oturum var mı? → güncelle, yoksa yeni oluştur
+  // Aynı gün + aynı şube için zaten oturum var mı? → güncelle, yoksa yeni oluştur
   const mevcutIdx = data.oturumlar.findIndex(o =>
-    o.musteriId === tab.musteriId && o.tarih === tab.tarih
+    o.musteriId === tab.musteriId && o.tarih === tab.tarih && o.sube === aktifSube
   );
   if (mevcutIdx >= 0) {
     data.oturumlar[mevcutIdx] = {
@@ -2576,7 +2654,7 @@ function gecmisGoster() {
   if (aktifSube !== 'YÖNETİM') oturumlar = oturumlar.filter(o => o.sube === aktifSube);
   if (filterId)   oturumlar = oturumlar.filter(o => o.musteriId === filterId);
   if (filtreSube) oturumlar = oturumlar.filter(o => o.sube === filtreSube);
-  oturumlar.sort((a,b) => b.tarih.localeCompare(a.tarih));
+  oturumlar.sort((a,b) => (b.tarih||'').localeCompare(a.tarih||''));
 
   if (oturumlar.length === 0) {
     document.getElementById('gecmis-tablo').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i>Kayıt bulunamadı</div>';
