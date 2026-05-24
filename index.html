@@ -817,7 +817,7 @@ let _unsubLive    = null;
 // Kendi Firestore yazımızın snapshot'ını bastırmak için flag
 let _isSaving = false;
 
-function getData()    { return appData; }
+function getData()    { return (appData && typeof appData === 'object') ? appData : { musteriler: [], oturumlar: [] }; }
 function getAyarlar() { return appAyarlar; }
 
 function saveData(data) {
@@ -978,8 +978,12 @@ async function initFirebase() {
     firebase.initializeApp(firebaseConfig);
     db = firebase.firestore();
 
-    // Şube belirleme
+    // Şube belirleme — YÖNETİM her zaman şifre ister, localStorage'dan bypass yok
     aktifSube = localStorage.getItem('aktif_sube');
+    if (aktifSube === 'YÖNETİM') {
+      localStorage.removeItem('aktif_sube');
+      aktifSube = null;
+    }
     if (!aktifSube) {
       if (loadingEl) loadingEl.style.display = 'none';
       if (subeEl)    subeEl.style.display = 'flex';
@@ -1008,8 +1012,12 @@ async function initFirebase() {
     db = null;
     _subeAdiGuncelle();
 
-    // Şube seçilmemişse önce şube seçtir, sonra devam et
+    // Şube seçilmemişse önce şube seçtir, sonra devam et — YÖNETİM bypass yok
     aktifSube = localStorage.getItem('aktif_sube');
+    if (aktifSube === 'YÖNETİM') {
+      localStorage.removeItem('aktif_sube');
+      aktifSube = null;
+    }
     if (!aktifSube) {
       if (loadingEl) loadingEl.style.display = 'none';
       if (subeEl)    subeEl.style.display = 'flex';
@@ -1128,7 +1136,8 @@ function fmtNum(n) {
 
 function getMusteriToplamlar(musteriId) {
   const data = getData();
-  const oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId);
+  let oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId);
+  if (aktifSube !== 'YÖNETİM') oturumlar = oturumlar.filter(o => o.sube === aktifSube);
   let toplamOynanan = 0, toplamKazanc = 0, toplamVerilenDiscount = 0;
   for (const o of oturumlar) {
     toplamVerilenDiscount += o.verilenDiscount || 0;
@@ -1210,10 +1219,11 @@ function renderDashboard() {
   const data = getData();
   const subeler = ['ALSANCAK','ZEYTİNLİK','KAŞGAR','İTİMAT'];
 
-  // Şube filtre butonları (yönetim için)
+  // Şube filtre butonları (sadece YÖNETİM görür)
   const filterEl = document.getElementById('dashboard-sube-filter');
   if (filterEl) {
-    filterEl.innerHTML = `
+    if (aktifSube !== 'YÖNETİM') { filterEl.innerHTML = ''; }
+    else filterEl.innerHTML = `
       <button onclick="dashboardSubeFilter='';renderDashboard();"
         style="padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:${dashboardSubeFilter===''?'#1a2642':'#fff'};color:${dashboardSubeFilter===''?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer;">
         Tümü
@@ -1446,6 +1456,11 @@ function renderDetay(musteriId) {
   const data = getData();
   const m = data.musteriler.find(x => x.id === musteriId);
   if (!m) return;
+  if (aktifSube !== 'YÖNETİM' && m.sube !== aktifSube) {
+    toast('Bu müşteriye erişim izni yok!', 'error');
+    showPage('musteriler');
+    return;
+  }
 
   document.getElementById('detay-baslik').textContent = m.adSoyad;
   document.getElementById('detay-alt').textContent = `${m.telefon || ''} · Kayıt: ${fmtDate(m.kayitTarih)}`;
@@ -1607,6 +1622,10 @@ function musteriSil(musteriId) {
   const data = getData();
   const m = data.musteriler.find(x => x.id === musteriId);
   if (!m) return;
+  if (aktifSube !== 'YÖNETİM' && m.sube !== aktifSube) {
+    toast('Bu müşteriyi silme izni yok!', 'error');
+    return;
+  }
   const oturumSayisi = data.oturumlar.filter(o => o.musteriId === musteriId).length;
   const mesaj = oturumSayisi > 0
     ? `"${m.adSoyad}" silinecek.\n${oturumSayisi} oturum kaydı da silinecek.\n\nEmin misiniz?`
@@ -1621,9 +1640,14 @@ function musteriSil(musteriId) {
 }
 
 function ekDiscountEkle(musteriId) {
+  const data = getData();
+  const m = data.musteriler.find(x => x.id === musteriId);
+  if (!m || (aktifSube !== 'YÖNETİM' && m.sube !== aktifSube)) {
+    toast('Bu müşteriye discount ekleme izni yok!', 'error');
+    return;
+  }
   const val = parseFloat(document.getElementById('ek-discount-input').value) || 0;
   if (val <= 0) { toast('Geçerli tutar giriniz!', 'error'); return; }
-  const data = getData();
   // Boş bir "sadece discount" oturumu ekle
   data.oturumlar.push({
     id: uid(), musteriId, tarih: new Date().toISOString().split('T')[0],
@@ -1873,6 +1897,14 @@ function renderAktifTabIcerik() {
 function tabMusteriDegis(musteriId) {
   const tab = getAktifTab();
   if (!tab) return;
+  if (musteriId) {
+    const data = getData();
+    const m = data.musteriler.find(x => x.id === musteriId);
+    if (m && aktifSube !== 'YÖNETİM' && m.sube !== aktifSube) {
+      toast('Bu müşteriyi seçme izni yok!', 'error');
+      return;
+    }
+  }
   tab.musteriId = musteriId;
   // Bugün bu müşteri için kayıtlı oturum varsa satırları yükle
   gunlukOturumYukle(tab);
@@ -1885,7 +1917,7 @@ function gunlukOturumYukle(tab) {
   if (!tab.musteriId || !tab.tarih) return;
   const data = getData();
   const mevcutOturum = data.oturumlar.find(o =>
-    o.musteriId === tab.musteriId && o.tarih === tab.tarih
+    o.musteriId === tab.musteriId && o.tarih === tab.tarih && o.sube === aktifSube
   );
   if (mevcutOturum && (mevcutOturum.bahisler || []).length > 0) {
     // Kayıtlı satırları yükle + 3 boş satır ekle
@@ -2059,8 +2091,11 @@ function renderCanliGirisler() {
   const el    = document.getElementById('canli-girisler');
   if (!panel || !el) return;
 
-  const subeler = ['ALSANCAK','ZEYTİNLİK','KAŞGAR','İTİMAT'];
-  const aktifler = subeler
+  // YÖNETİM tüm şubeleri, şube kullanıcısı sadece kendi taslağını görür
+  const gorunenSubeler = aktifSube === 'YÖNETİM'
+    ? ['ALSANCAK','ZEYTİNLİK','KAŞGAR','İTİMAT']
+    : [aktifSube];
+  const aktifler = gorunenSubeler
     .map(s => ({ sube: s, draft: appLive[s] }))
     .filter(x => x.draft && x.draft.toplamOynanan > 0);
 
@@ -2309,6 +2344,11 @@ function openOturumModal(oturumId) {
   const data = getData();
   const o = data.oturumlar.find(x => x.id === oturumId);
   if (!o) return;
+  if (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube) {
+    toast('Bu oturuma erişim izni yok!', 'error');
+    currentOturumId = null;
+    return;
+  }
   const m = data.musteriler.find(x => x.id === o.musteriId);
 
   let bahisHtml = '';
@@ -2353,8 +2393,13 @@ function closeOturumModal() {
 
 function oturumSil() {
   if (!currentOturumId) return;
-  if (!confirm('Bu oturumu silmek istediğinize emin misiniz?')) return;
   const data = getData();
+  const o = data.oturumlar.find(x => x.id === currentOturumId);
+  if (!o || (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube)) {
+    toast('Bu oturumu silme izni yok!', 'error');
+    return;
+  }
+  if (!confirm('Bu oturumu silmek istediğinize emin misiniz?')) return;
   data.oturumlar = data.oturumlar.filter(o => o.id !== currentOturumId);
   saveData(data);
   closeOturumModal();
