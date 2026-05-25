@@ -1,6 +1,6 @@
 {
-  "name": "SOLİBET Müşteri Takip",
-  "short_name": "SOLİBET",
+  "name": "Müşteri Kazanç",
+  "short_name": "Müşteri Kazanç",
   "description": "Müşteri Kazanç Takip Sistemi",
   "start_url": "/solibet-discount/",
   "scope": "/solibet-discount/",
