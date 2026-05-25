@@ -1,0 +1,2814 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Müşteri Kazanç Takip Sistemi v3.4</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    :root {
+      --bg-dark: #f0f4fb;
+      --bg-card: #ffffff;
+      --bg-input: #f5f8ff;
+      --accent: #2563eb;
+      --accent2: #7c3aed;
+      --green: #059669;
+      --red: #dc2626;
+      --yellow: #d97706;
+      --border: #e2e8f5;
+      --text: #1e2642;
+      --text-muted: #64748b;
+      --shadow: 0 1px 4px rgba(37,99,235,.07), 0 4px 16px rgba(0,0,0,.06);
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-dark); color: var(--text); font-family: 'Inter', 'Segoe UI', sans-serif; min-height: 100vh; display: flex; }
+
+    /* SIDEBAR */
+    #sidebar {
+      width: 230px; min-height: 100vh; background: #1a2642;
+      border-right: none; display: flex; flex-direction: column;
+      position: fixed; top: 0; left: 0; z-index: 100;
+      box-shadow: 2px 0 16px rgba(0,0,0,.12);
+    }
+    .sidebar-logo {
+      padding: 22px 18px 18px; border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+    .sidebar-logo .brand { display: flex; align-items: center; gap: 10px; }
+    .sidebar-logo .brand-icon {
+      width: 34px; height: 34px; background: linear-gradient(135deg,#3b82f6,#1d4ed8);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -1px; flex-shrink: 0;
+    }
+    .sidebar-logo h5 { color: #fff; font-weight: 800; font-size: 17px; margin: 0; letter-spacing: .5px; }
+    .sidebar-logo small { color: rgba(255,255,255,.45); font-size: 10px; display: block; margin-top: 2px; }
+    .nav-item-s {
+      display: flex; align-items: center; gap: 10px; padding: 10px 18px;
+      cursor: pointer; color: rgba(255,255,255,.55); font-size: 13px; transition: all .15s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item-s:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.9); }
+    .nav-item-s.active { background: rgba(59,130,246,.18); color: #93c5fd; border-left-color: #3b82f6; font-weight: 600; }
+    .nav-item-s i { width: 18px; text-align: center; font-size: 13px; }
+    .nav-section { padding: 16px 18px 4px; font-size: 9.5px; color: rgba(255,255,255,.28); text-transform: uppercase; letter-spacing: 1.2px; }
+
+    /* MAIN */
+    #main { margin-left: 230px; flex: 1; padding: 28px 32px; min-height: 100vh; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* CARDS */
+    .card-s {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow-sm);
+    }
+    .card-s h6 { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; font-weight: 600; }
+    .stat-val { font-size: 26px; font-weight: 700; }
+    .stat-val.green { color: var(--green); }
+    .stat-val.red { color: var(--red); }
+    .stat-val.blue { color: var(--accent); }
+    .stat-val.yellow { color: var(--yellow); }
+
+    /* INPUTS */
+    .form-control-s, .form-select-s {
+      background: var(--bg-input); border: 1.5px solid var(--border); color: var(--text);
+      border-radius: 9px; padding: 9px 12px; font-size: 13px; width: 100%;
+      transition: border-color .15s, box-shadow .15s; font-family: inherit;
+    }
+    .form-control-s:focus, .form-select-s:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    .form-control-s::placeholder { color: #b0bac9; }
+    .form-control-s.text-end { text-align: right; }
+
+    /* BUTTONS */
+    .btn-s {
+      border: none; border-radius: 9px; padding: 9px 18px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: all .15s; display: inline-flex;
+      align-items: center; gap: 6px; font-family: inherit;
+    }
+    .btn-primary-s { background: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,.25); }
+    .btn-primary-s:hover { background: #1d4ed8; box-shadow: 0 4px 12px rgba(37,99,235,.35); }
+    .btn-success-s { background: var(--green); color: #fff; box-shadow: 0 2px 8px rgba(5,150,105,.2); }
+    .btn-success-s:hover { background: #047857; }
+    .btn-danger-s { background: var(--red); color: #fff; box-shadow: 0 2px 6px rgba(220,38,38,.2); }
+    .btn-danger-s:hover { background: #b91c1c; }
+    .btn-ghost-s { background: #fff; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-ghost-s:hover { border-color: var(--accent); color: var(--accent); background: #eff6ff; }
+    .btn-yellow-s { background: var(--yellow); color: #fff; }
+    .btn-yellow-s:hover { background: #b45309; }
+
+    /* TABLE */
+    .table-s { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .table-s th { background: #f8faff; padding: 10px 14px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1.5px solid var(--border); font-weight: 600; }
+    .table-s td { padding: 11px 14px; border-bottom: 1px solid #f1f4fb; vertical-align: middle; color: var(--text); }
+    .table-s tr:hover td { background: #f0f7ff; }
+    .table-s tr:last-child td { border-bottom: none; }
+
+    /* BET ENTRY TABLE */
+    .bet-table { width: 100%; border-collapse: collapse; }
+    .bet-table th { background: #f8faff; padding: 9px 10px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; border-bottom: 1.5px solid var(--border); font-weight: 600; }
+    .bet-table td { padding: 5px 6px; border-bottom: 1px solid #f1f4fb; }
+    .bet-table input, .bet-table select {
+      background: var(--bg-input); border: 1.5px solid var(--border); color: var(--text);
+      border-radius: 7px; padding: 7px 10px; font-size: 13px; width: 100%; font-family: inherit;
+    }
+    .bet-table input:focus, .bet-table select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+    .bet-table input::placeholder { color: #b0bac9; font-size: 12px; }
+    .bet-table .result-kazanc { color: var(--green); font-weight: 600; }
+    .bet-table .result-kayip { color: var(--red); font-weight: 600; }
+
+    /* HAKEDIS PANEL */
+    .hakedis-panel {
+      background: linear-gradient(135deg, #1e3a6e 0%, #1a2d5a 100%);
+      border: none; border-radius: 14px; padding: 22px;
+      box-shadow: 0 4px 20px rgba(37,99,235,.2);
+    }
+    .hakedis-panel .hakedis-label { color: rgba(255,255,255,.6); font-size: 13px; }
+    .hakedis-panel .hakedis-val { color: #fff; font-weight: 700; font-size: 15px; }
+    .hakedis-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .hakedis-row:last-child { border-bottom: none; }
+    .hakedis-label { color: var(--text-muted); font-size: 13px; }
+    .hakedis-val { font-weight: 700; font-size: 15px; }
+    .hakedis-main { font-size: 20px; color: #fbbf24; }
+    .hakedis-kalan { font-size: 20px; color: #60a5fa; }
+
+    /* BADGES */
+    .badge-s { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-yellow { background: #fef3c7; color: #92400e; }
+    .badge-gray { background: #f1f5f9; color: #475569; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15,23,42,.5); backdrop-filter: blur(4px); z-index: 200; display: none;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 28px; min-width: 420px; max-width: 600px; width: 90%;
+      max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.15);
+    }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: var(--text); }
+
+    /* PAGE HEADER */
+    .page-header { margin-bottom: 24px; }
+    .page-header h2 { font-size: 21px; font-weight: 700; color: var(--text); }
+    .page-header p { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+
+    /* CUSTOMER CARD */
+    .customer-card {
+      background: var(--bg-card); border: 1.5px solid var(--border); border-radius: 14px;
+      padding: 16px 20px; cursor: pointer; transition: all .15s; margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+    }
+    .customer-card:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(37,99,235,.12); transform: translateY(-1px); }
+    .customer-avatar {
+      width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-weight: 700; font-size: 16px; flex-shrink: 0;
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f4fb; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+
+    /* TOAST */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 300;
+      background: #1e2642; border: none; border-radius: 12px;
+      padding: 13px 22px; font-size: 13px; display: none; color: #fff;
+      box-shadow: 0 8px 32px rgba(0,0,0,.2);
+    }
+    #toast.show { display: block; animation: fadeIn .2s; }
+    #toast.success { border-left: 4px solid var(--green); }
+    #toast.error { border-left: 4px solid var(--red); }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    label { font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: block; font-weight: 500; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 14px; }
+    .mt-3 { margin-top: 12px; }
+    .mt-4 { margin-top: 18px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 14px; }
+    .mb-4 { margin-bottom: 20px; }
+    .text-end { text-align: right; }
+    .text-center { text-align: center; }
+    .flex-row { display: flex; align-items: center; gap: 10px; }
+    .flex-between { display: flex; justify-content: space-between; align-items: center; }
+    .separator { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+    .text-green { color: var(--green); }
+    .text-red { color: var(--red); }
+    .text-yellow { color: var(--yellow); }
+    .text-blue { color: var(--accent); }
+    .text-muted-s { color: var(--text-muted); font-size: 12px; }
+    .fw-bold { font-weight: 700; }
+    .discount-band { padding: 10px 14px; border-radius: 9px; font-size: 12.5px; margin-bottom: 10px; }
+    .discount-band-0 { background: #f8fafc; border: 1px solid #e2e8f0; color: var(--text-muted); }
+    .discount-band-10 { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .discount-band-20 { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
+    .session-row { cursor: pointer; }
+    .session-row:hover td { background: #f0f7ff !important; }
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+    .empty-state i { font-size: 40px; margin-bottom: 12px; opacity: .3; display: block; }
+    .delete-row-btn { background: none; border: none; color: #cbd5e1; cursor: pointer; padding: 4px 7px; border-radius: 6px; }
+    .delete-row-btn:hover { color: var(--red); background: #fee2e2; }
+    .total-row td { background: #f8faff !important; font-weight: 700; border-top: 2px solid var(--border) !important; color: var(--text); }
+
+    /* Sayı input oklarını kaldır */
+    input[type=number] { -moz-appearance: textfield; }
+    input[type=number]::-webkit-outer-spin-button,
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    /* ===================== MOBİL BOTTOM NAV ===================== */
+    #bottom-nav {
+      display: none;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 150;
+      background: #1a2642; border-top: 1px solid rgba(255,255,255,.1);
+      padding: 8px 0 env(safe-area-inset-bottom, 8px);
+    }
+    .bnav-inner { display: flex; align-items: center; justify-content: space-around; }
+    .bnav-item {
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 4px 14px; cursor: pointer; color: rgba(255,255,255,.45);
+      font-size: 10px; font-weight: 600; transition: color .15s; min-width: 56px;
+    }
+    .bnav-item i { font-size: 19px; }
+    .bnav-item.active { color: #60a5fa; }
+    .bnav-item.bnav-plus {
+      background: #2563eb; color: #fff; border-radius: 16px;
+      padding: 8px 18px; margin-top: -14px;
+      box-shadow: 0 4px 16px rgba(37,99,235,.5);
+    }
+    .bnav-item.bnav-plus i { font-size: 22px; }
+
+    /* ===================== iOS & ANDROID GLOBAL ===================== */
+    * { -webkit-tap-highlight-color: transparent; }
+    body { -webkit-overflow-scrolling: touch; overscroll-behavior-y: none; }
+    /* iOS: input'larda otomatik zoom engeli — font 16px altında zoom yapar */
+    @media (max-width: 1024px) {
+      input, select, textarea {
+        font-size: 16px !important;
+        transform-origin: left top;
+      }
+      /* görsel küçültme: 16px font ama 13px gibi görünsün */
+      .form-control-s, .form-select-s {
+        font-size: 16px !important;
+        padding: 10px 12px;
+      }
+      .bet-table input, .bet-table select { font-size: 16px !important; }
+    }
+
+    /* ===================== RESPONSIVE ===================== */
+    @media (max-width: 1024px) {
+      #sidebar { display: none !important; }
+      #bottom-nav { display: block; }
+      #mobile-sube-bar { display: flex !important; }
+      #main {
+        margin-left: 0 !important;
+        /* env(safe-area-inset-top) iPhone notch için */
+        padding: calc(56px + env(safe-area-inset-top, 0px)) 14px calc(84px + env(safe-area-inset-bottom, 0px));
+        overflow-x: hidden;
+      }
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr !important; gap: 10px; }
+      .page-header { margin-bottom: 16px; }
+      .page-header h2 { font-size: 17px; }
+      .page-header.flex-between { flex-wrap: wrap; gap: 10px; }
+      .stat-val { font-size: 22px; }
+      .card-s { padding: 14px; overflow-x: auto; }
+      .modal-box { min-width: unset; width: 96%; padding: 20px 16px; }
+      .flex-row { flex-wrap: wrap; }
+      .flex-between { flex-wrap: wrap; gap: 8px; }
+      .table-s, .bet-table { font-size: 12px; }
+      .table-s th, .table-s td { padding: 8px 8px; white-space: nowrap; }
+      .hakedis-panel { padding: 16px; }
+      .tab-bar { padding: 6px 6px 0; }
+      .tab-item { padding: 7px 12px; font-size: 12px; }
+      .tab-body { padding: 14px; }
+      #toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); right: 14px; left: 14px; text-align: center; }
+      .kural-row { grid-template-columns: 1fr 1fr 44px; }
+      .kural-header { grid-template-columns: 1fr 1fr 44px; }
+      #dashboard-sube-filter { gap: 6px; }
+      #dashboard-sube-filter button { font-size: 11px; padding: 4px 10px; }
+      .btn-s { font-size: 12px; padding: 8px 14px; }
+      /* Rapor ve Geçmiş sayfa başlıkları */
+      #page-raporlar .page-header .flex-row,
+      #page-gecmis .page-header > div:last-child { flex-direction: column; align-items: flex-start; width: 100%; }
+      #rapor-ay, #rapor-yil, #gecmis-sube-filter, #gecmis-musteri-filter { width: 100% !important; }
+    }
+    @media (max-width: 480px) {
+      #main { padding: calc(56px + env(safe-area-inset-top, 0px)) 10px calc(84px + env(safe-area-inset-bottom, 0px)); }
+      .stat-val { font-size: 18px; }
+      .btn-s { font-size: 11px; padding: 7px 11px; }
+      .page-header h2 { font-size: 15px; }
+      .card-s { padding: 12px 10px; }
+      .modal-box { padding: 16px 12px; }
+      .tab-item { padding: 6px 10px; font-size: 11px; }
+      .bnav-item { padding: 4px 8px; font-size: 9px; min-width: 48px; }
+      .bnav-item i { font-size: 17px; }
+      .bnav-item.bnav-plus { padding: 7px 14px; }
+      .hakedis-panel { padding: 12px 10px; }
+    }
+    @media (max-width: 360px) {
+      .bnav-item { padding: 4px 5px; font-size: 8.5px; min-width: 40px; }
+      .bnav-item i { font-size: 16px; }
+      .btn-s { font-size: 10.5px; padding: 6px 9px; gap: 4px; }
+    }
+
+    /* Ayarlar */
+    .kural-row { display: grid; grid-template-columns: 1fr 1fr 1fr 44px; gap: 10px; align-items: center; margin-bottom: 8px; }
+    .kural-label { font-size: 11px; color: var(--text-muted); text-align: center; margin-bottom: 4px; }
+    .ayar-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+    .ayar-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .ayar-card p { font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+    .kural-header { display: grid; grid-template-columns: 1fr 1fr 1fr 44px; gap: 10px; margin-bottom: 6px; }
+    .kural-header span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; text-align: center; }
+
+    /* SEKMELER */
+    .tab-bar {
+      display: flex; align-items: stretch; gap: 4px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px 12px 0 0; padding: 8px 8px 0; overflow-x: auto;
+      border-bottom: none;
+    }
+    .tab-bar::-webkit-scrollbar { height: 3px; }
+    .tab-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 16px; border-radius: 8px 8px 0 0;
+      cursor: pointer; font-size: 13px; font-weight: 500;
+      border: 1px solid transparent; border-bottom: none;
+      color: var(--text-muted); white-space: nowrap;
+      transition: all .15s; position: relative;
+      background: transparent;
+    }
+    .tab-item:hover { background: rgba(79,142,247,.08); color: var(--text); }
+    .tab-item.aktif {
+      background: var(--bg-dark); color: var(--text);
+      border-color: var(--border); font-weight: 600;
+    }
+    .tab-item .tab-close {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; padding: 0 0 0 4px; font-size: 14px; line-height: 1;
+      border-radius: 3px;
+    }
+    .tab-item .tab-close:hover { color: var(--red); }
+    .tab-item .tab-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--text-muted); flex-shrink: 0;
+    }
+    .tab-item.aktif .tab-dot { background: var(--green); }
+    .tab-add-btn {
+      background: none; border: 1px dashed var(--border);
+      border-bottom: none; color: var(--text-muted);
+      padding: 9px 14px; border-radius: 8px 8px 0 0;
+      cursor: pointer; font-size: 18px; line-height: 1;
+      transition: all .15s; align-self: stretch;
+      display: flex; align-items: center;
+    }
+    .tab-add-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(79,142,247,.06); }
+    .tab-body {
+      background: var(--bg-dark);
+      border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 12px 12px; padding: 20px;
+      margin-bottom: 16px;
+    }
+    .tab-empty {
+      text-align: center; padding: 60px 20px; color: var(--text-muted);
+    }
+    .tab-empty i { font-size: 40px; display: block; margin-bottom: 14px; opacity: .3; }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">
+      <div class="brand-icon">S</div>
+      <div>
+        <h5>SOLİBET</h5>
+        <small>Müşteri Kazanç Sistemi</small>
+      </div>
+    </div>
+  </div>
+  <div style="padding: 8px 0; flex: 1;">
+    <div class="nav-section">Genel</div>
+    <div class="nav-item-s active" onclick="showPage('dashboard')">
+      <i class="fas fa-tachometer-alt"></i> Dashboard
+    </div>
+    <div class="nav-section">Müşteriler</div>
+    <div class="nav-item-s" onclick="showPage('musteriler')">
+      <i class="fas fa-users"></i> Müşteri Listesi
+    </div>
+    <div class="nav-item-s" id="nav-giris" onclick="showPage('giris')">
+      <i class="fas fa-plus-circle"></i> Günlük Giriş
+    </div>
+    <div class="nav-section">Raporlar</div>
+    <div class="nav-item-s" onclick="showPage('raporlar')">
+      <i class="fas fa-file-alt"></i> Aylık Rapor
+    </div>
+    <div class="nav-item-s" onclick="showPage('gecmis')">
+      <i class="fas fa-history"></i> Tüm Geçmiş
+    </div>
+    <div class="nav-section">Sistem</div>
+    <div class="nav-item-s" onclick="showPage('ayarlar')">
+      <i class="fas fa-cog"></i> Ayarlar
+    </div>
+  </div>
+  <div style="padding: 16px; border-top: 1px solid rgba(255,255,255,.08);">
+    <div style="font-size: 11px; color: rgba(255,255,255,.55); margin-bottom: 8px; display:flex; align-items:center; gap:6px;">
+      <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;flex-shrink:0;" id="firebase-dot"></span>
+      <span id="aktif-sube-adi" style="font-weight:600;">Bağlanıyor...</span>
+    </div>
+    <button onclick="subeSeciciAc()" style="width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.55);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+      <i class="fas fa-exchange-alt"></i> Şube Değiştir
+    </button>
+    <div style="font-size: 10px; color: rgba(255,255,255,.2); font-style: italic; line-height: 1.4; margin-top:8px;">
+      Nazif TANRIÖVER tarafından tasarlanmıştır
+    </div>
+  </div>
+</div>
+
+<!-- MOBİL ÜST ŞUBE ÇUBUĞU -->
+<div id="mobile-sube-bar" style="display:none; position:fixed; top:0; left:0; right:0; z-index:140; background:#1a2642; min-height:44px; padding: calc(6px + env(safe-area-inset-top, 0px)) 12px 6px; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,.1);" >
+  <div style="display:flex; align-items:center; gap:7px;">
+    <span style="width:7px;height:7px;background:#22c55e;border-radius:50%;display:inline-block;" id="m-firebase-dot"></span>
+    <span style="color:#fff; font-size:13px; font-weight:700;" id="m-aktif-sube-adi">—</span>
+  </div>
+  <button onclick="subeSeciciAc()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;">
+    <i class="fas fa-exchange-alt"></i> Şube Değiştir
+  </button>
+</div>
+
+<!-- MOBİL ALT NAVIGASYON -->
+<nav id="bottom-nav">
+  <div class="bnav-inner">
+    <div class="bnav-item active" id="bnav-dashboard" onclick="showPage('dashboard')">
+      <i class="fas fa-home"></i>Ana
+    </div>
+    <div class="bnav-item" id="bnav-musteriler" onclick="showPage('musteriler')">
+      <i class="fas fa-users"></i>Müşteriler
+    </div>
+    <div class="bnav-item bnav-plus" id="bnav-giris" onclick="showPage('giris')">
+      <i class="fas fa-plus"></i>Giriş
+    </div>
+    <div class="bnav-item" id="bnav-gecmis" onclick="showPage('gecmis')">
+      <i class="fas fa-history"></i>Geçmiş
+    </div>
+    <div class="bnav-item" id="bnav-ayarlar" onclick="showPage('ayarlar')">
+      <i class="fas fa-cog"></i>Ayarlar
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<div id="main">
+
+  <!-- ============ DASHBOARD ============ -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header flex-between">
+      <div>
+        <h2><i class="fas fa-tachometer-alt me-2 text-blue"></i>Dashboard</h2>
+        <p id="bugun-tarih"></p>
+      </div>
+      <button class="btn-s btn-primary-s" id="btn-yeni-giris" onclick="showPage('giris')">
+        <i class="fas fa-plus"></i> Yeni Giriş Yap
+      </button>
+    </div>
+    <!-- Şube filtre butonları -->
+    <div id="dashboard-sube-filter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;"></div>
+    <div class="grid-4 mb-4" id="dashboard-stats"></div>
+    <div class="grid-2">
+      <div class="card-s">
+        <div class="flex-between mb-3">
+          <strong style="font-size: 14px;">Son Girişler</strong>
+          <span class="text-muted-s" id="son-giris-count"></span>
+        </div>
+        <div id="son-girisler"></div>
+      </div>
+      <div class="card-s">
+        <div class="flex-between mb-3">
+          <strong style="font-size: 14px;">Discount Durumu</strong>
+          <span class="text-muted-s">Aktif müşteriler</span>
+        </div>
+        <div id="discount-durumu"></div>
+      </div>
+    </div>
+    <!-- Canlı Girişler Paneli -->
+    <div class="card-s" id="canli-panel" style="display:none; border-left: 4px solid #22c55e;">
+      <div class="flex-between mb-3">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:9px;height:9px;background:#22c55e;border-radius:50%;display:inline-block;animation:pulse 1.2s infinite;"></span>
+          <strong style="font-size:14px;">Canlı Girişler</strong>
+        </div>
+        <span class="text-muted-s">Kaydedilmemiş aktif veriler</span>
+      </div>
+      <div id="canli-girisler"></div>
+    </div>
+    <style>@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
+  </div>
+
+  <!-- ============ MÜŞTERİLER ============ -->
+  <div class="page" id="page-musteriler">
+    <div class="page-header flex-between">
+      <div>
+        <h2><i class="fas fa-users me-2 text-blue"></i>Müşteri Listesi</h2>
+        <p>Tüm müşterileriniz ve özet bilgileri</p>
+      </div>
+      <button class="btn-s btn-primary-s" onclick="openMusteriModal()">
+        <i class="fas fa-plus"></i> Yeni Müşteri
+      </button>
+    </div>
+    <div id="musteri-listesi"></div>
+  </div>
+
+  <!-- ============ DETAY ============ -->
+  <div class="page" id="page-detay">
+    <div class="page-header flex-between">
+      <div>
+        <button class="btn-s btn-ghost-s mb-2" onclick="showPage('musteriler')" style="font-size:12px; padding:5px 12px;">
+          <i class="fas fa-arrow-left"></i> Geri
+        </button>
+        <h2 id="detay-baslik">Müşteri Detayı</h2>
+        <p id="detay-alt">Tüm bahis geçmişi ve özet</p>
+      </div>
+      <div class="flex-row">
+        <button class="btn-s btn-primary-s" onclick="yeniGirisIcinMusteriSec()">
+          <i class="fas fa-plus"></i> Bu Müşteri İçin Giriş
+        </button>
+        <button class="btn-s btn-ghost-s" onclick="openMusteriModal(currentMusteriId)">
+          <i class="fas fa-edit"></i> Düzenle
+        </button>
+        <button class="btn-s btn-danger-s" onclick="musteriSil(currentMusteriId)">
+          <i class="fas fa-trash"></i> Müşteriyi Sil
+        </button>
+      </div>
+    </div>
+    <div class="grid-4 mb-4" id="detay-stats"></div>
+    <div class="grid-2 mb-3">
+      <div class="card-s">
+        <div class="hakedis-panel" id="detay-hakedis"></div>
+      </div>
+      <div class="card-s">
+        <strong style="font-size: 13px; display:block; margin-bottom: 12px;">Discount Yönetimi</strong>
+        <div id="detay-discount-form"></div>
+      </div>
+    </div>
+    <div class="card-s">
+      <strong style="font-size: 14px; display:block; margin-bottom: 14px;">Bahis Geçmişi</strong>
+      <div id="detay-gecmis"></div>
+    </div>
+  </div>
+
+  <!-- ============ GÜNLÜK GİRİŞ ============ -->
+  <div class="page" id="page-giris">
+    <div class="page-header flex-between" style="margin-bottom: 16px;">
+      <div>
+        <h2><i class="fas fa-plus-circle me-2 text-green"></i>Günlük Bahis Girişi</h2>
+        <p>Her müşteri için ayrı sekme — aynı anda birden fazla müşteri takibi</p>
+      </div>
+      <button class="btn-s btn-primary-s" onclick="tabEkle()">
+        <i class="fas fa-plus"></i> Müşteri Ekle
+      </button>
+    </div>
+
+    <!-- TAB BAR -->
+    <div class="tab-bar" id="tab-bar"></div>
+
+    <!-- TAB CONTENT -->
+    <div class="tab-body" id="tab-content">
+      <div class="tab-empty">
+        <i class="fas fa-users"></i>
+        <div style="font-size:15px; font-weight:600; margin-bottom:8px;">Müşteri Yok</div>
+        <div style="margin-bottom:18px;">Sağ üstteki "Müşteri Ekle" butonuna basın</div>
+        <button class="btn-s btn-primary-s" onclick="tabEkle()">
+          <i class="fas fa-plus"></i> İlk Müşteriyi Ekle
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AYLIK RAPOR ============ -->
+  <div class="page" id="page-raporlar">
+    <div class="page-header flex-between">
+      <div>
+        <h2><i class="fas fa-file-alt me-2 text-blue"></i>Aylık Rapor</h2>
+        <p>Seçilen aya ait müşteri bazlı özet rapor</p>
+      </div>
+      <div class="flex-row">
+        <select class="form-select-s" id="rapor-ay" onchange="raporGoster()" style="width: auto;">
+          <option value="1">Ocak</option><option value="2">Şubat</option><option value="3">Mart</option>
+          <option value="4">Nisan</option><option value="5">Mayıs</option><option value="6">Haziran</option>
+          <option value="7">Temmuz</option><option value="8">Ağustos</option><option value="9">Eylül</option>
+          <option value="10">Ekim</option><option value="11">Kasım</option><option value="12">Aralık</option>
+        </select>
+        <select class="form-select-s" id="rapor-yil" onchange="raporGoster()" style="width: auto;"></select>
+      </div>
+    </div>
+    <div class="grid-3 mb-4" id="rapor-ozet-stats"></div>
+    <div class="card-s">
+      <div id="rapor-tablo"></div>
+    </div>
+  </div>
+
+  <!-- ============ TÜM GEÇMİŞ ============ -->
+  <div class="page" id="page-gecmis">
+    <div class="page-header flex-between">
+      <div>
+        <h2><i class="fas fa-history me-2 text-blue"></i>Tüm Geçmiş</h2>
+        <p>Tüm bahis oturumları</p>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <select class="form-select-s" id="gecmis-sube-filter" onchange="gecmisGoster()" style="width: 150px;">
+          <option value="">Tüm Şubeler</option>
+          <option>ALSANCAK</option>
+          <option>ZEYTİNLİK</option>
+          <option>KAŞGAR</option>
+          <option>İTİMAT</option>
+        </select>
+        <select class="form-select-s" id="gecmis-musteri-filter" onchange="gecmisGoster()" style="width: 220px;">
+          <option value="">Tüm Müşteriler</option>
+        </select>
+      </div>
+    </div>
+    <div class="card-s">
+      <div id="gecmis-tablo"></div>
+    </div>
+  </div>
+
+  <!-- ====== MÜŞTERI MODAL ====== -->
+<div class="modal-overlay" id="musteri-modal">
+  <div class="modal-box">
+    <div class="flex-between mb-3">
+      <div class="modal-title"><i class="fas fa-user-plus me-2 text-blue"></i>Yeni Müşteri Ekle</div>
+      <button class="btn-s btn-ghost-s" onclick="closeMusteriModal()" style="padding: 5px 10px; font-size:12px;">✕</button>
+    </div>
+    <div class="mb-3">
+      <label>Ad Soyad *</label>
+      <input type="text" class="form-control-s" id="m-adsoyad" placeholder="Müşteri adı soyadı">
+    </div>
+    <div class="grid-2">
+      <div>
+        <label>Telefon</label>
+        <input type="text" class="form-control-s" id="m-telefon" placeholder="0532...">
+      </div>
+      <div>
+        <label>Kayıt Tarihi</label>
+        <input type="date" class="form-control-s" id="m-kayittarih">
+      </div>
+    </div>
+    <div class="mt-3 mb-3">
+      <label>Not</label>
+      <input type="text" class="form-control-s" id="m-not" placeholder="İsteğe bağlı not">
+    </div>
+    <div class="flex-row mt-4" style="justify-content: flex-end;">
+      <button class="btn-s btn-ghost-s" onclick="closeMusteriModal()">İptal</button>
+      <button class="btn-s btn-primary-s" onclick="musteriKaydet()">
+        <i class="fas fa-save"></i> Kaydet
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== OTURUM DETAY MODAL ====== -->
+<div class="modal-overlay" id="oturum-modal">
+  <div class="modal-box" style="max-width: 700px;">
+    <div class="flex-between mb-3">
+      <div class="modal-title"><i class="fas fa-list me-2 text-blue"></i>Oturum Detayı</div>
+      <button class="btn-s btn-ghost-s" onclick="closeOturumModal()" style="padding: 5px 10px; font-size:12px;">✕</button>
+    </div>
+    <div id="oturum-modal-icerik"></div>
+    <div class="flex-row mt-4" style="justify-content: flex-end;">
+      <button class="btn-s btn-danger-s" id="oturum-sil-btn" onclick="oturumSil()">
+        <i class="fas fa-trash"></i> Oturumu Sil
+      </button>
+      <button class="btn-s btn-ghost-s" onclick="closeOturumModal()">Kapat</button>
+    </div>
+  </div>
+</div>
+
+  <!-- ============ AYARLAR ============ -->
+  <div class="page" id="page-ayarlar">
+    <div class="page-header">
+      <h2><i class="fas fa-cog me-2 text-blue"></i>Ayarlar</h2>
+      <p>Discount kurallarını ve sistem ayarlarını buradan düzenleyin</p>
+    </div>
+
+    <div class="ayar-card">
+      <h4><i class="fas fa-percent me-2 text-yellow"></i>Discount Kuralları</h4>
+      <p>Müşterinin toplam kaybına göre uygulanacak discount oranlarını belirleyin. Kayıp tutarı hangi aralığa giriyorsa o satırın oranı uygulanır.</p>
+
+      <div class="kural-header">
+        <span>Min Kayıp (TL)</span>
+        <span>Max Kayıp (TL)</span>
+        <span>Discount %</span>
+        <span></span>
+      </div>
+      <div id="kural-listesi"></div>
+
+      <button class="btn-s btn-ghost-s mt-3" onclick="kuralEkle()" style="font-size:12px;">
+        <i class="fas fa-plus"></i> Yeni Kural Ekle
+      </button>
+
+      <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+        <button class="btn-s btn-success-s" onclick="ayarlariKaydet()">
+          <i class="fas fa-save"></i> Kaydet
+        </button>
+        <button class="btn-s btn-ghost-s" style="margin-left: 8px;" onclick="ayarlariSifirla()">
+          <i class="fas fa-undo"></i> Varsayılana Sıfırla
+        </button>
+      </div>
+    </div>
+
+    <div class="ayar-card">
+      <h4><i class="fas fa-lock me-2" style="color:#dc2626;"></i>YÖNETİM Giriş Şifresi</h4>
+      <p style="margin-bottom:14px;">Şube cihazlarının YÖNETİM paneline erişimini engelleyen şifre. Varsayılan: <strong>1881</strong></p>
+      <div style="display:flex;gap:10px;align-items:center;max-width:340px;">
+        <input type="password" id="yonetim-pin-input" class="form-control-s" placeholder="Yeni şifre girin (min. 4 karakter)" style="flex:1;">
+        <button class="btn-s btn-danger-s" onclick="yonetimPinDegistir()" style="white-space:nowrap;">
+          <i class="fas fa-key"></i> Kaydet
+        </button>
+      </div>
+    </div>
+
+    <div class="ayar-card">
+      <h4><i class="fas fa-info-circle me-2 text-blue"></i>Kural Nasıl Çalışır?</h4>
+      <p style="margin-bottom:0;">Müşterinin toplam birikimli kaybı hesaplanır. Bu kayıp hangi aralığa giriyorsa o aralığın discount yüzdesi uygulanır.<br><br>
+      <strong>Örnek:</strong> 25.000–50.000 TL = %10 kuralında, müşteri 40.000 TL kaybettiyse hakediş = 40.000 × %10 = 4.000 TL olur.<br><br>
+      <strong>Not:</strong> Aralıkların çakışmamasına dikkat edin. "Max" boş bırakılırsa o değerin üzeri anlamına gelir.</p>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- TOAST -->
+<div id="toast"><i class="fas fa-check me-2"></i><span id="toast-msg"></span></div>
+
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay" style="position:fixed;inset:0;background:rgba(26,38,66,.93);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;">
+  <style>@keyframes fbspin{to{transform:rotate(360deg)}}</style>
+  <div style="width:52px;height:52px;border:5px solid rgba(255,255,255,.12);border-top-color:#3b82f6;border-radius:50%;animation:fbspin 1s linear infinite;"></div>
+  <div style="color:#fff;font-size:17px;font-weight:600;">Firebase'e Bağlanıyor...</div>
+  <div style="color:rgba(255,255,255,.45);font-size:13px;">Lütfen bekleyin</div>
+</div>
+
+<!-- ŞUBE SEÇİCİ -->
+<div id="sube-secici" style="display:none;position:fixed;inset:0;background:rgba(26,38,66,.95);z-index:9998;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:36px 44px;max-width:420px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.35);">
+    <div style="width:62px;height:62px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px;color:#fff;">
+      <i class="fas fa-building"></i>
+    </div>
+    <h4 style="margin-bottom:8px;font-weight:800;color:#1e2642;font-size:20px;">Şube Seçin</h4>
+    <p style="color:#64748b;font-size:14px;margin-bottom:26px;">Bu cihazın bağlı olduğu şubeyi seçin.<br>Seçim bu cihazda hatırlanır.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="subeSeç('ALSANCAK')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> ALSANCAK
+      </button>
+      <button onclick="subeSeç('ZEYTİNLİK')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> ZEYTİNLİK
+      </button>
+      <button onclick="subeSeç('KAŞGAR')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> KAŞGAR
+      </button>
+      <button onclick="subeSeç('İTİMAT')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> İTİMAT
+      </button>
+      <button onclick="yonetimSifreGoster()" style="background:#1a2642;border:2px solid #1a2642;color:#fff;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-crown" style="font-size:16px;color:#fbbf24;"></i> YÖNETİM <span style="font-size:12px;opacity:.6;font-weight:500;"><i class="fas fa-lock" style="font-size:11px;"></i> Şifreli</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- YÖNETİM ŞİFRE MODAL -->
+<div id="yonetim-sifre-modal" style="display:none;position:fixed;inset:0;background:rgba(26,38,66,.97);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:36px 40px;max-width:360px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.4);">
+    <div style="width:58px;height:58px;background:linear-gradient(135deg,#1a2642,#2563eb);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:24px;">
+      <i class="fas fa-crown" style="color:#fbbf24;"></i>
+    </div>
+    <h4 style="margin-bottom:6px;font-weight:800;color:#1e2642;font-size:18px;">YÖNETİM Girişi</h4>
+    <p style="color:#64748b;font-size:13px;margin-bottom:22px;">Şifreyi girin</p>
+    <input type="password" id="yonetim-sifre-input" class="form-control-s" placeholder="••••"
+      style="text-align:center;font-size:22px;letter-spacing:6px;margin-bottom:10px;"
+      onkeydown="if(event.key==='Enter') yonetimSifreKontrol()"
+      oninput="document.getElementById('yonetim-sifre-hata').style.display='none'">
+    <div id="yonetim-sifre-hata" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-bottom:10px;">
+      <i class="fas fa-times-circle"></i> Hatalı şifre!
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button onclick="yonetimSifreKapat()" style="flex:1;background:#f1f5f9;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;color:#64748b;">
+        İptal
+      </button>
+      <button onclick="yonetimSifreKontrol()" style="flex:1;background:#1a2642;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;color:#fff;">
+        <i class="fas fa-unlock"></i> Giriş
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== DATA MANAGEMENT =====================
+const VARSAYILAN_KURALLAR = [
+  { minKayip: 25000, maxKayip: 50000, oran: 10 },
+  { minKayip: 50000, maxKayip: null,  oran: 20 }
+];
+
+// ---- Firebase & in-memory cache ----
+let appData    = { musteriler: [], oturumlar: [] };
+let appAyarlar = { kurallar: VARSAYILAN_KURALLAR };
+let db         = null;
+let aktifSube  = null;
+let appLive    = {}; // tüm şubelerin canlı verileri
+
+// Listener unsubscribe fonksiyonları (sızıntı önleme)
+let _unsubMain    = null;
+let _unsubAyarlar = null;
+let _unsubLive    = null;
+
+// Kendi Firestore yazımızın snapshot'ını bastırmak için flag
+let _isSaving = false;
+
+// Canlı taslak debounce zamanlayıcı (subeSeç şubelendirme için yukarı taşındı)
+let liveDraftTimer = null;
+
+function getData() {
+  if (!appData || typeof appData !== 'object') appData = { musteriler: [], oturumlar: [] };
+  if (!Array.isArray(appData.musteriler)) appData.musteriler = [];
+  if (!Array.isArray(appData.oturumlar))  appData.oturumlar  = [];
+  return appData;
+}
+function getAyarlar() {
+  if (!appAyarlar || typeof appAyarlar !== 'object') appAyarlar = { kurallar: VARSAYILAN_KURALLAR };
+  if (!Array.isArray(appAyarlar.kurallar)) appAyarlar.kurallar = VARSAYILAN_KURALLAR;
+  return appAyarlar;
+}
+
+function saveData(data) {
+  appData = data;
+  if (db && aktifSube !== 'YÖNETİM') {
+    _isSaving = true;
+    db.collection('data').doc('main').set(data)
+      .then(() => { _isSaving = false; })
+      .catch(e => {
+        _isSaving = false;
+        console.error('Firestore yazma hatası (data):', e);
+        toast('Kayıt başarısız! İnternet bağlantınızı kontrol edin.', 'error');
+      });
+  }
+}
+
+function saveAyarlar(ayarlar) {
+  if (aktifSube !== 'YÖNETİM') {
+    toast('Kuralları sadece YÖNETİM değiştirebilir!', 'error');
+    return;
+  }
+  appAyarlar = ayarlar;
+  if (db) {
+    db.collection('data').doc('ayarlar').set(ayarlar, { merge: true })
+      .catch(e => console.error('Firestore yazma hatası (ayarlar):', e));
+  }
+}
+
+// ---- Firestore dinleyicileri kur (sızıntısız) ----
+function setupFirestoreListeners() {
+  // Önceki dinleyicileri temizle
+  if (_unsubMain)    { _unsubMain();    _unsubMain    = null; }
+  if (_unsubAyarlar) { _unsubAyarlar(); _unsubAyarlar = null; }
+  if (_unsubLive)    { _unsubLive();    _unsubLive    = null; }
+  if (!db) return;
+
+  _unsubMain = db.collection('data').doc('main').onSnapshot(snap => {
+    if (snap.exists) {
+      if (_isSaving) return; // kendi yazmamızın geri yansımasını bastır
+      appData = snap.data();
+      // Aktif sayfayı otomatik yenile (cross-branch sync)
+      if      (currentPage === 'dashboard')  renderDashboard();
+      else if (currentPage === 'musteriler') renderMusteriler();
+      else if (currentPage === 'gecmis')     renderGecmis();
+      else if (currentPage === 'raporlar')   renderRaporlar();
+      else if (currentPage === 'detay' && currentMusteriId) renderDetay(currentMusteriId);
+    }
+  });
+  _unsubAyarlar = db.collection('data').doc('ayarlar').onSnapshot(snap => {
+    if (snap.exists) appAyarlar = snap.data();
+  });
+  _unsubLive = db.collection('data').doc('live').onSnapshot(snap => {
+    appLive = snap.exists ? (snap.data() || {}) : {};
+    renderCanliGirisler();
+  });
+}
+
+// ---- Şube seçici ----
+async function subeSeç(sube) {
+  localStorage.setItem('aktif_sube', sube);
+  aktifSube = sube;
+  const overlay = document.getElementById('sube-secici');
+  if (overlay) overlay.style.display = 'none';
+  _subeAdiGuncelle();
+
+  // Şube değişince uygulama durumunu sıfırla
+  dashboardSubeFilter = '';
+  currentMusteriId = null;
+  currentOturumId = null;
+  tabs = []; aktifTabId = null;
+  appLive = {}; // canlı taslakları temizle, yeni snapshot yeniler
+  // Bekleyen canlı taslak zamanlayıcısını iptal et (eski şubeye yazmasın)
+  if (liveDraftTimer) { clearTimeout(liveDraftTimer); liveDraftTimer = null; }
+  // Açık modalları kapat
+  document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+
+  // Firestore'a bağlan ve dinleyicileri yenile
+  if (db) {
+    const loadingEl = document.getElementById('loading-overlay');
+    if (loadingEl) loadingEl.style.display = 'flex';
+    try {
+      const [mainSnap, ayarSnap] = await Promise.all([
+        db.collection('data').doc('main').get(),
+        db.collection('data').doc('ayarlar').get()
+      ]);
+      if (mainSnap.exists) appData    = mainSnap.data();
+      if (ayarSnap.exists) appAyarlar = ayarSnap.data();
+      setupFirestoreListeners();
+    } catch(e) { console.error('Şube bağlantı hatası:', e); }
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+
+  showPage('dashboard');
+}
+
+function subeSeciciAc() {
+  const overlay = document.getElementById('sube-secici');
+  if (overlay) overlay.style.display = 'flex';
+}
+
+// ---- YÖNETİM Şifre Koruması ----
+function yonetimSifreGoster() {
+  const modal = document.getElementById('yonetim-sifre-modal');
+  if (!modal) return;
+  document.getElementById('yonetim-sifre-input').value = '';
+  document.getElementById('yonetim-sifre-hata').style.display = 'none';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('yonetim-sifre-input').focus(), 100);
+}
+
+function yonetimSifreKapat() {
+  const modal = document.getElementById('yonetim-sifre-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function yonetimSifreKontrol() {
+  const girilen = document.getElementById('yonetim-sifre-input').value;
+  const dogru = (appAyarlar && appAyarlar.yonetimPin) ? appAyarlar.yonetimPin : '1881';
+  if (girilen === dogru) {
+    yonetimSifreKapat();
+    subeSeç('YÖNETİM');
+  } else {
+    document.getElementById('yonetim-sifre-hata').style.display = 'block';
+    document.getElementById('yonetim-sifre-input').value = '';
+    document.getElementById('yonetim-sifre-input').focus();
+  }
+}
+
+function _subeAdiGuncelle() {
+  const el = document.getElementById('aktif-sube-adi');
+  if (el) el.textContent = aktifSube || '—';
+  const mEl = document.getElementById('m-aktif-sube-adi');
+  if (mEl) mEl.textContent = aktifSube || '—';
+  const dot = document.getElementById('firebase-dot');
+  if (dot) dot.style.background = db ? '#22c55e' : '#f59e0b';
+  const mDot = document.getElementById('m-firebase-dot');
+  if (mDot) mDot.style.background = db ? '#22c55e' : '#f59e0b';
+
+  // YÖNETİM: giriş ekranını ve butonları gizle
+  const isYonetim = aktifSube === 'YÖNETİM';
+  const navGiris   = document.getElementById('nav-giris');
+  const bnavPlus   = document.querySelector('.bnav-plus');
+  const btnGiris   = document.getElementById('btn-yeni-giris');
+  if (navGiris) navGiris.style.display  = isYonetim ? 'none' : '';
+  if (bnavPlus) bnavPlus.style.display  = isYonetim ? 'none' : '';
+  if (btnGiris) btnGiris.style.display  = isYonetim ? 'none' : '';
+}
+
+// ---- Firebase init ----
+const firebaseConfig = {
+  apiKey: "AIzaSyDsVEX7vT88WiGtexg4U7vX3KPgOU5ZtGY",
+  authDomain: "solibet-musteri-takip.firebaseapp.com",
+  projectId: "solibet-musteri-takip",
+  storageBucket: "solibet-musteri-takip.firebasestorage.app",
+  messagingSenderId: "120929182881",
+  appId: "1:120929182881:web:0c89b678fffe1f9d8c7ce0",
+  measurementId: "G-CLSDSEL2JP"
+};
+
+async function initFirebase() {
+  const loadingEl = document.getElementById('loading-overlay');
+  const subeEl    = document.getElementById('sube-secici');
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+
+    // Şube belirleme — YÖNETİM her zaman şifre ister, localStorage'dan bypass yok
+    aktifSube = localStorage.getItem('aktif_sube');
+    if (aktifSube === 'YÖNETİM') {
+      localStorage.removeItem('aktif_sube');
+      aktifSube = null;
+    }
+    if (!aktifSube) {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (subeEl)    subeEl.style.display = 'flex';
+      // subeSeç() çağrıldığında devam eder
+      return;
+    }
+
+    _subeAdiGuncelle();
+
+    // İlk yükleme — Firestore'dan anlık veri çek
+    const [mainSnap, ayarSnap] = await Promise.all([
+      db.collection('data').doc('main').get(),
+      db.collection('data').doc('ayarlar').get()
+    ]);
+    if (mainSnap.exists) appData    = mainSnap.data();
+    if (ayarSnap.exists) appAyarlar = ayarSnap.data();
+
+    // Gerçek zamanlı dinleyiciler (cross-branch sync)
+    setupFirestoreListeners();
+
+    if (loadingEl) loadingEl.style.display = 'none';
+    renderDashboard();
+
+  } catch (err) {
+    console.error('Firebase başlatma hatası:', err);
+    db = null;
+    _subeAdiGuncelle();
+
+    // Şube seçilmemişse önce şube seçtir, sonra devam et — YÖNETİM bypass yok
+    aktifSube = localStorage.getItem('aktif_sube');
+    if (aktifSube === 'YÖNETİM') {
+      localStorage.removeItem('aktif_sube');
+      aktifSube = null;
+    }
+    if (!aktifSube) {
+      if (loadingEl) loadingEl.style.display = 'none';
+      if (subeEl)    subeEl.style.display = 'flex';
+      return;
+    }
+
+    // Şube zaten seçiliyse hata ekranını göster
+    if (loadingEl) loadingEl.innerHTML = `
+      <div style="color:#fff;font-size:15px;text-align:center;max-width:340px;padding:24px;">
+        <i class="fas fa-exclamation-triangle" style="font-size:36px;color:#f59e0b;display:block;margin-bottom:14px;"></i>
+        <strong style="font-size:18px;">Firebase Bağlantı Hatası</strong><br>
+        <span style="font-size:13px;opacity:.7;display:block;margin:10px 0 20px;">${err.message}</span>
+        <button onclick="document.getElementById('loading-overlay').style.display='none';renderDashboard();"
+          style="background:#3b82f6;color:#fff;border:none;padding:11px 28px;border-radius:9px;cursor:pointer;font-size:15px;font-weight:700;">
+          Çevrimdışı Devam Et
+        </button>
+      </div>`;
+  }
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+}
+
+// İş günü = standart takvim günü (00:00'da otomatik sıfırlanır)
+function getIsGunu() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// Bir müşterinin belirli bir iş günündeki kayıp + verilen discount toplamı
+// gunNet ve gunKayip, her ikisi de bahisler dizisinden hesaplanır (toplamNet'e güvenmez)
+function getGunlukToplamlar(musteriId, tarih) {
+  const data = getData();
+  const oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId && o.tarih === tarih);
+  let gunVerilenDiscount = 0, gunOynanan = 0, gunNet = 0;
+  for (const o of oturumlar) {
+    gunVerilenDiscount += o.verilenDiscount || 0;
+    gunOynanan += o.toplamOynanan || 0;
+    // FORMÜL: NET = Σkazanç − Σoynanan (ham veriyi kullan)
+    for (const b of (o.bahisler || [])) {
+      if ((b.oynanan || 0) > 0) {
+        gunNet += (b.kazanc || 0) - (b.oynanan || 0);
+      }
+    }
+  }
+  // gunKayip = net kayıp (hakedis için)
+  const gunKayip = Math.max(0, -gunNet);
+  return { gunKayip, gunVerilenDiscount, gunOynanan, gunNet };
+}
+
+// Bir müşterinin belirli ay-yıl (ör: "2026-05") toplamları
+function getAylikToplamlar(musteriId, ayYil) {
+  const data = getData();
+  const oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId && o.tarih && o.tarih.startsWith(ayYil));
+  let ayNet = 0, ayVerilenDiscount = 0;
+  for (const o of oturumlar) {
+    ayVerilenDiscount += o.verilenDiscount || 0;
+    // FORMÜL: NET = Σkazanç − Σoynanan (ham veriyi kullan)
+    for (const b of (o.bahisler || [])) {
+      if ((b.oynanan || 0) > 0) {
+        ayNet += (b.kazanc || 0) - (b.oynanan || 0);
+      }
+    }
+  }
+  const ayKayip = Math.max(0, -ayNet);
+  return { ayKayip, ayNet, ayVerilenDiscount };
+}
+
+// ===================== HAKEDIS HESAPLAMA =====================
+function bandInfoHtml(toplamKayip, h, compact) {
+  const { kurallar } = getAyarlar();
+  const sirali = [...kurallar].sort((a, b) => a.minKayip - b.minKayip);
+  if (h.band > 0) {
+    // Bir sonraki kural var mı?
+    const suanki = sirali.find(k => k.oran === h.band && toplamKayip >= k.minKayip);
+    const sonraki = sirali.find(k => k.minKayip > toplamKayip && k.oran !== h.band);
+    if (sonraki) {
+      const ek = sonraki.minKayip - toplamKayip;
+      return `<div class="discount-band discount-band-10" style="font-size:12px;"><i class="fas fa-fire me-1"></i>%${sonraki.oran}'a geçmek için ${fmt(ek)} daha gerekli</div>`;
+    }
+    return `<div class="discount-band discount-band-20" style="font-size:12px;"><i class="fas fa-star me-1"></i>Aktif band: <strong>%${h.band}</strong></div>`;
+  }
+  // Eşiğe ulaşılmadı — en düşük kural eşiğini göster
+  if (sirali.length > 0) {
+    const ilk = sirali[0];
+    const ek = ilk.minKayip - toplamKayip;
+    if (ek > 0) return `<div class="discount-band discount-band-0" style="font-size:12px;"><i class="fas fa-info-circle me-1"></i>%${ilk.oran} için ${fmt(ek)} daha gerekli</div>`;
+  }
+  return '';
+}
+
+function hesaplaHakedis(toplamKayip) {
+  if (toplamKayip <= 0) return { oran: 0, tutar: 0, band: 0, label: '—' };
+  const { kurallar } = getAyarlar();
+  // Kuralları minKayip'e göre büyükten küçüğe sırala, ilk uyanı uygula
+  const sirali = [...kurallar].sort((a, b) => b.minKayip - a.minKayip);
+  for (const k of sirali) {
+    const ustSinir = k.maxKayip || Infinity;
+    if (toplamKayip >= k.minKayip && toplamKayip < ustSinir) {
+      return {
+        oran: k.oran,
+        tutar: toplamKayip * (k.oran / 100),
+        band: k.oran,
+        label: `%${k.oran} (${fmtNum(k.minKayip)}${k.maxKayip ? '–' + fmtNum(k.maxKayip) : '+'})`
+      };
+    }
+  }
+  // Hiçbir kurala uymadı (eşiğin altında)
+  return { oran: 0, tutar: 0, band: 0, label: '—' };
+}
+
+// Sayı formatı (₺ işareti olmadan, kural gösterimi için)
+function fmtNum(n) {
+  return new Intl.NumberFormat('tr-TR').format(n);
+}
+
+function getMusteriToplamlar(musteriId, subeFilter) {
+  const data = getData();
+  let oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId);
+  if (aktifSube !== 'YÖNETİM') oturumlar = oturumlar.filter(o => o.sube === aktifSube);
+  // YÖNETİM ek şube filtresi (dashboard buton bazlı görünüm için)
+  if (subeFilter) oturumlar = oturumlar.filter(o => o.sube === subeFilter);
+  let toplamOynanan = 0, toplamKazanc = 0, toplamVerilenDiscount = 0;
+  for (const o of oturumlar) {
+    toplamVerilenDiscount += o.verilenDiscount || 0;
+    // FORMÜL: NET = Σkazanç − Σoynanan (ham veriden hesapla)
+    for (const b of (o.bahisler || [])) {
+      toplamOynanan += b.oynanan || 0;
+      toplamKazanc  += b.kazanc  || 0;
+    }
+  }
+  const toplamNet  = toplamKazanc - toplamOynanan;
+  const toplamKayip = Math.max(0, -toplamNet);
+  return { toplamOynanan, toplamNet, toplamKayip, toplamKazanc, toplamVerilenDiscount, oturumSayisi: oturumlar.length };
+}
+
+// ===================== FORMAT =====================
+function fmt(n) {
+  if (n === undefined || n === null || isNaN(n)) return '0 ₺';
+  return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(n) + ' ₺';
+}
+function fmtDate(d) {
+  if (!d) return '';
+  const dt = new Date(d + 'T00:00:00');
+  return dt.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function avatarColor(name) {
+  if (!name) return '#4f8ef7';
+  const colors = ['#4f8ef7','#7c4dff','#2ecc71','#e74c3c','#f39c12','#1abc9c','#e91e63','#ff5722'];
+  let h = 0; for (const c of name) h += c.charCodeAt(0);
+  return colors[h % colors.length];
+}
+function initials(name) {
+  if (!name) return '?';
+  return name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().substring(0, 2) || '?';
+}
+
+// ===================== TOAST =====================
+function toast(msg, type = 'success') {
+  const el = document.getElementById('toast');
+  const msgEl = document.getElementById('toast-msg');
+  msgEl.textContent = msg;
+  el.className = 'show ' + type;
+  setTimeout(() => el.className = '', 2500);
+}
+
+// ===================== PAGE NAVIGATION =====================
+let currentPage = 'dashboard';
+let currentMusteriId = null;
+let currentOturumId = null;
+
+function showPage(page, musteriId) {
+  const pageEl = document.getElementById('page-' + page);
+  if (!pageEl) { console.warn('Sayfa bulunamadı:', page); return; }
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item-s').forEach(n => n.classList.remove('active'));
+  pageEl.classList.add('active');
+  document.querySelectorAll('.nav-item-s').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + page + "'"))
+      n.classList.add('active');
+  });
+  // Alt nav aktif durumu
+  document.querySelectorAll('.bnav-item:not(.bnav-plus)').forEach(n => n.classList.remove('active'));
+  // Detay sayfası = müşteri listesinin alt bölümü
+  const bnavPage = (page === 'detay') ? 'musteriler' : page;
+  const bnavEl = document.getElementById('bnav-' + bnavPage);
+  if (bnavEl) bnavEl.classList.add('active');
+  currentPage = page;
+  if (page === 'dashboard') renderDashboard();
+  else if (page === 'musteriler') renderMusteriler();
+  else if (page === 'giris') renderGiris(musteriId);
+  else if (page === 'raporlar') renderRaporlar();
+  else if (page === 'gecmis') renderGecmis();
+  else if (page === 'detay' && musteriId) renderDetay(musteriId);
+  else if (page === 'ayarlar') renderAyarlar();
+}
+
+// ===================== DASHBOARD =====================
+let dashboardSubeFilter = '';
+
+function renderDashboard() {
+  document.getElementById('bugun-tarih').textContent = new Date().toLocaleDateString('tr-TR', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  const data = getData();
+  const subeler = ['ALSANCAK','ZEYTİNLİK','KAŞGAR','İTİMAT'];
+
+  // Şube filtre butonları (sadece YÖNETİM görür)
+  const filterEl = document.getElementById('dashboard-sube-filter');
+  if (filterEl) {
+    if (aktifSube !== 'YÖNETİM') { filterEl.innerHTML = ''; }
+    else filterEl.innerHTML = `
+      <button onclick="dashboardSubeFilter='';renderDashboard();"
+        style="padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:${dashboardSubeFilter===''?'#1a2642':'#fff'};color:${dashboardSubeFilter===''?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer;">
+        Tümü
+      </button>
+      ${subeler.map(s => `
+        <button onclick="dashboardSubeFilter='${s}';renderDashboard();"
+          style="padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:${dashboardSubeFilter===s?'#1a2642':'#fff'};color:${dashboardSubeFilter===s?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer;">
+          ${s}
+        </button>`).join('')}
+    `;
+  }
+
+  // Filtrelenmiş oturumlar — şube izolasyonu + dashboard filtresi
+  const subeOturumlar = aktifSube !== 'YÖNETİM'
+    ? data.oturumlar.filter(o => o.sube === aktifSube)
+    : data.oturumlar;
+  const filtreOturumlar = dashboardSubeFilter
+    ? subeOturumlar.filter(o => o.sube === dashboardSubeFilter)
+    : subeOturumlar;
+
+  let toplamOynanan = 0, toplamKazanc = 0, toplamVerilenDiscount = 0;
+  for (const o of filtreOturumlar) {
+    toplamVerilenDiscount += o.verilenDiscount || 0;
+    for (const b of (o.bahisler || [])) {
+      toplamOynanan += b.oynanan || 0;
+      toplamKazanc  += b.kazanc  || 0;
+    }
+  }
+  const toplamNet  = toplamKazanc - toplamOynanan;
+  const toplamKayip = Math.max(0, -toplamNet);
+  // Müşteri sayısı: dashboardSubeFilter aktifse o şubedeki kayıtlı müşterileri say,
+  // yoksa aktif şubenin (veya YÖNETİM tümünün) müşterilerini say
+  const filtreMusteri = dashboardSubeFilter
+    ? data.musteriler.filter(m => m.sube === dashboardSubeFilter).length
+    : getSubeMusterileri(data).length;
+
+  document.getElementById('dashboard-stats').innerHTML = `
+    <div class="card-s">
+      <h6>Toplam Müşteri</h6>
+      <div class="stat-val blue">${filtreMusteri}</div>
+      <div class="text-muted-s mt-3">Kayıtlı müşteri</div>
+    </div>
+    <div class="card-s">
+      <h6>Toplam Oynanan</h6>
+      <div class="stat-val blue">${fmt(toplamOynanan)}</div>
+      <div class="text-muted-s mt-3">${filtreOturumlar.length} oturum</div>
+    </div>
+    <div class="card-s">
+      <h6>Toplam Net Sonuç</h6>
+      <div class="stat-val ${toplamNet >= 0 ? 'green' : 'red'}">${fmt(toplamNet)}</div>
+      <div class="text-muted-s mt-3">${toplamNet >= 0 ? 'Kâr' : 'Zarar'}</div>
+    </div>
+    <div class="card-s">
+      <h6>Verilen Discount</h6>
+      <div class="stat-val yellow">${fmt(toplamVerilenDiscount)}</div>
+      <div class="text-muted-s mt-3">Toplam iade</div>
+    </div>
+  `;
+
+  // Son girişler
+  const son = [...filtreOturumlar].sort((a,b) => (b.tarih||'').localeCompare(a.tarih||'')).slice(0, 6);
+  if (son.length === 0) {
+    document.getElementById('son-giris-count').textContent = '';
+    document.getElementById('son-girisler').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i>Henüz giriş yok</div>';
+  } else {
+    document.getElementById('son-giris-count').textContent = son.length + ' kayıt';
+    document.getElementById('son-girisler').innerHTML = son.map(o => {
+      const m = data.musteriler.find(x => x.id === o.musteriId);
+      const net = o.toplamNet || 0;
+      const subeBadge = o.sube ? `<span style="font-size:10px;background:#e0e7ff;color:#3730a3;border-radius:4px;padding:1px 6px;margin-left:6px;font-weight:600;">${o.sube}</span>` : '';
+      return `<div class="flex-between" style="padding: 8px 0; border-bottom: 1px solid var(--border); cursor:pointer;" onclick="openOturumModal('${o.id}')" title="Oturum detayını gör">
+        <div>
+          <span style="font-size:13px; font-weight:600;">${m ? m.adSoyad : 'Bilinmiyor'}</span>
+          ${subeBadge}
+          <span class="text-muted-s" style="margin-left:6px;">${fmtDate(o.tarih)}</span>
+        </div>
+        <span class="badge-s ${net >= 0 ? 'badge-green' : 'badge-red'}">${fmt(net)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Discount durumu — YÖNETİM şube filtresi varsa o şubenin müşterilerine indirge
+  const discountMusteriler = dashboardSubeFilter
+    ? data.musteriler.filter(m => m.sube === dashboardSubeFilter)
+    : getSubeMusterileri(data);
+  const musteriDiscount = discountMusteriler.map(m => {
+    const t = getMusteriToplamlar(m.id, dashboardSubeFilter || null);
+    const h = hesaplaHakedis(t.toplamKayip);
+    return { m, t, h, kalan: h.tutar - t.toplamVerilenDiscount };
+  }).filter(x => x.h.band > 0).sort((a,b) => b.kalan - a.kalan);
+
+  if (musteriDiscount.length === 0) {
+    document.getElementById('discount-durumu').innerHTML = '<div class="empty-state"><i class="fas fa-percent"></i>Discount eşiğine ulaşan müşteri yok</div>';
+  } else {
+    document.getElementById('discount-durumu').innerHTML = musteriDiscount.map(x => `
+      <div class="flex-between" style="padding: 8px 0; border-bottom: 1px solid var(--border); cursor:pointer;" onclick="showPage('detay', '${x.m.id}')">
+        <div>
+          <span style="font-size:13px; font-weight:600;">${x.m.adSoyad}</span>
+          <span class="badge-s ${x.h.band === 20 ? 'badge-blue' : 'badge-yellow'}" style="margin-left:6px;">%${x.h.band}</span>
+        </div>
+        <div class="text-end">
+          <div style="font-size:13px; font-weight:700; color: var(--accent);">${fmt(x.kalan)}</div>
+          <div class="text-muted-s">kalan hakediş</div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+// Şubeye göre müşteri filtrele (YÖNETİM hepsini görür)
+function getSubeMusterileri(data) {
+  if (aktifSube === 'YÖNETİM') return data.musteriler;
+  return data.musteriler.filter(m => m.sube === aktifSube);
+}
+
+// ===================== MÜŞTERİLER =====================
+function renderMusteriler() {
+  const data = getData();
+  const el = document.getElementById('musteri-listesi');
+  const musteriler = getSubeMusterileri(data);
+  if (musteriler.length === 0) {
+    el.innerHTML = `<div class="card-s empty-state"><i class="fas fa-users"></i><p>Henüz müşteri eklenmemiş.</p><button class="btn-s btn-primary-s mt-3" onclick="openMusteriModal()"><i class="fas fa-plus"></i> İlk Müşteriyi Ekle</button></div>`;
+    return;
+  }
+  el.innerHTML = musteriler.map(m => {
+    const t = getMusteriToplamlar(m.id);
+    const h = hesaplaHakedis(t.toplamKayip);
+    const kalan = h.tutar - t.toplamVerilenDiscount;
+    const color = avatarColor(m.adSoyad);
+    return `
+    <div class="customer-card" onclick="showPage('detay', '${m.id}')">
+      <div class="flex-row" style="gap: 14px;">
+        <div class="customer-avatar" style="background: ${color}20; color: ${color};">${initials(m.adSoyad)}</div>
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">${m.adSoyad}</div>
+          <div class="text-muted-s">${m.telefon || 'Tel yok'} · Kayıt: ${fmtDate(m.kayitTarih)}</div>
+        </div>
+      </div>
+      <div class="flex-row" style="gap: 24px;">
+        <div class="text-center">
+          <div class="text-muted-s" style="font-size: 11px; margin-bottom: 2px;">OYNANAN</div>
+          <div style="font-weight: 700; font-size: 13px;">${fmt(t.toplamOynanan)}</div>
+        </div>
+        <div class="text-center">
+          <div class="text-muted-s" style="font-size: 11px; margin-bottom: 2px;">NET SONUÇ</div>
+          <div style="font-weight: 700; font-size: 13px; color: ${t.toplamNet >= 0 ? 'var(--green)' : 'var(--red)'};">${fmt(t.toplamNet)}</div>
+        </div>
+        <div class="text-center">
+          <div class="text-muted-s" style="font-size: 11px; margin-bottom: 2px;">DISCOUNT</div>
+          <div style="font-weight: 700; font-size: 13px;">
+            ${h.band > 0 ? `<span class="badge-s ${h.band === 20 ? 'badge-blue' : 'badge-yellow'}">%${h.band}</span>` : '<span class="badge-s badge-gray">Yok</span>'}
+          </div>
+        </div>
+        <div class="text-center">
+          <div class="text-muted-s" style="font-size: 11px; margin-bottom: 2px;">KALAN HAKEDİŞ</div>
+          <div style="font-weight: 700; font-size: 13px; color: var(--accent);">${fmt(kalan)}</div>
+        </div>
+        <i class="fas fa-chevron-right text-muted-s"></i>
+        <button class="btn-s btn-ghost-s" style="padding:6px 12px; font-size:12px;" onclick="event.stopPropagation(); openMusteriModal('${m.id}')">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button class="btn-s btn-danger-s" style="padding:6px 12px; font-size:12px;" onclick="event.stopPropagation(); musteriSil('${m.id}')">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===================== MÜŞTERİ MODAL =====================
+let editMusteriId = null;
+
+function openMusteriModal(musteriId) {
+  editMusteriId = musteriId || null;
+  if (musteriId) {
+    const data = getData();
+    const m = data.musteriler.find(x => x.id === musteriId);
+    if (!m) return;
+    document.getElementById('m-adsoyad').value = m.adSoyad || '';
+    document.getElementById('m-telefon').value = m.telefon || '';
+    document.getElementById('m-not').value = m.not || '';
+    document.getElementById('m-kayittarih').value = m.kayitTarih || '';
+    document.querySelector('#musteri-modal .modal-title').innerHTML = '<i class="fas fa-user-edit me-2 text-blue"></i>Müşteri Düzenle';
+    document.querySelector('#musteri-modal .btn-primary-s').innerHTML = '<i class="fas fa-save"></i> Güncelle';
+  } else {
+    document.getElementById('m-adsoyad').value = '';
+    document.getElementById('m-telefon').value = '';
+    document.getElementById('m-not').value = '';
+    document.getElementById('m-kayittarih').value = new Date().toISOString().split('T')[0];
+    document.querySelector('#musteri-modal .modal-title').innerHTML = '<i class="fas fa-user-plus me-2 text-blue"></i>Yeni Müşteri Ekle';
+    document.querySelector('#musteri-modal .btn-primary-s').innerHTML = '<i class="fas fa-save"></i> Kaydet';
+  }
+  document.getElementById('musteri-modal').classList.add('show');
+  setTimeout(() => document.getElementById('m-adsoyad').focus(), 100);
+}
+function closeMusteriModal() {
+  document.getElementById('musteri-modal').classList.remove('show');
+  editMusteriId = null;
+}
+function musteriKaydet() {
+  const ad = document.getElementById('m-adsoyad').value.trim();
+  if (!ad) { toast('Ad soyad giriniz!', 'error'); return; }
+  const data = getData();
+  if (editMusteriId) {
+    const m = data.musteriler.find(x => x.id === editMusteriId);
+    if (m) {
+      m.adSoyad = ad;
+      m.telefon = document.getElementById('m-telefon').value.trim();
+      m.kayitTarih = document.getElementById('m-kayittarih').value || m.kayitTarih;
+      m.not = document.getElementById('m-not').value.trim();
+    }
+    saveData(data);
+    closeMusteriModal();
+    toast('Müşteri güncellendi ✓');
+    if (currentPage === 'detay') renderDetay(editMusteriId);
+    else renderMusteriler();
+  } else {
+    data.musteriler.push({
+      id: uid(), adSoyad: ad,
+      telefon: document.getElementById('m-telefon').value.trim(),
+      kayitTarih: document.getElementById('m-kayittarih').value || new Date().toISOString().split('T')[0],
+      not: document.getElementById('m-not').value.trim(),
+      sube: aktifSube || ''
+    });
+    saveData(data);
+    closeMusteriModal();
+    toast('Müşteri kaydedildi ✓');
+    renderMusteriler();
+  }
+}
+
+// ===================== DETAY =====================
+function renderDetay(musteriId) {
+  currentMusteriId = musteriId;
+  const data = getData();
+  const m = data.musteriler.find(x => x.id === musteriId);
+  if (!m) {
+    // Müşteri silinmiş olabilir (başka cihazdan)
+    if (currentPage === 'detay') {
+      toast('Müşteri bulunamadı', 'error');
+      showPage('musteriler');
+    }
+    return;
+  }
+  if (aktifSube !== 'YÖNETİM' && m.sube !== aktifSube) {
+    toast('Bu müşteriye erişim izni yok!', 'error');
+    showPage('musteriler');
+    return;
+  }
+
+  document.getElementById('detay-baslik').textContent = m.adSoyad;
+  document.getElementById('detay-alt').textContent = `${m.telefon || ''} · Kayıt: ${fmtDate(m.kayitTarih)}`;
+
+  const t = getMusteriToplamlar(musteriId);
+  const h = hesaplaHakedis(t.toplamKayip);
+  const kalan = h.tutar - t.toplamVerilenDiscount;
+
+  document.getElementById('detay-stats').innerHTML = `
+    <div class="card-s">
+      <h6>Toplam Oynanan</h6>
+      <div class="stat-val blue">${fmt(t.toplamOynanan)}</div>
+      <div class="text-muted-s mt-3">${t.oturumSayisi} oturum</div>
+    </div>
+    <div class="card-s">
+      <h6>Net Sonuç</h6>
+      <div class="stat-val ${t.toplamNet >= 0 ? 'green' : 'red'}">${fmt(t.toplamNet)}</div>
+      <div class="text-muted-s mt-3">${t.toplamNet >= 0 ? 'Kâr' : 'Zarar'}</div>
+    </div>
+    <div class="card-s">
+      <h6>Toplam Kayıp</h6>
+      <div class="stat-val red">${fmt(t.toplamKayip)}</div>
+      <div class="text-muted-s mt-3">Discount hesabı için</div>
+    </div>
+    <div class="card-s">
+      <h6>Verilen Discount</h6>
+      <div class="stat-val yellow">${fmt(t.toplamVerilenDiscount)}</div>
+      <div class="text-muted-s mt-3">Toplam iade edildi</div>
+    </div>
+  `;
+
+  // Hakediş paneli
+  let bandHtml = bandInfoHtml(t.toplamKayip, h);
+
+  document.getElementById('detay-hakedis').innerHTML = `
+    <div style="font-size: 13px; font-weight: 700; margin-bottom: 14px;"><i class="fas fa-calculator me-2 text-yellow"></i>Hakediş Özeti</div>
+    ${bandHtml}
+    <div class="hakedis-row"><span class="hakedis-label">Toplam Kayıp</span><span class="hakedis-val text-red">${fmt(t.toplamKayip)}</span></div>
+    <div class="hakedis-row"><span class="hakedis-label">Discount Oranı</span><span class="hakedis-val">${h.band > 0 ? '%' + h.band : '—'}</span></div>
+    <div class="hakedis-row"><span class="hakedis-label" style="font-weight:600;">Toplam Hakediş</span><span class="hakedis-val hakedis-main">${fmt(h.tutar)}</span></div>
+    <div class="hakedis-row"><span class="hakedis-label">Verilen Discount</span><span class="hakedis-val text-red">${fmt(t.toplamVerilenDiscount)}</span></div>
+    <hr class="separator">
+    <div class="hakedis-row"><span class="hakedis-label" style="font-weight:700;">Kalan Hakediş</span><span class="hakedis-val hakedis-kalan">${fmt(kalan)}</span></div>
+  `;
+
+  // Discount düzenleme
+  document.getElementById('detay-discount-form').innerHTML = `
+    <div style="background: var(--bg-input); border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+      <div class="flex-between mb-2"><span class="text-muted-s">Hakediş</span><span style="font-weight:700;">${fmt(h.tutar)}</span></div>
+      <div class="flex-between mb-2"><span class="text-muted-s">Verilen</span><span style="color:var(--red); font-weight:700;">${fmt(t.toplamVerilenDiscount)}</span></div>
+      <hr class="separator">
+      <div class="flex-between"><span style="font-weight:700;">Kalan</span><span style="font-size:18px; font-weight:700; color:var(--accent);">${fmt(kalan)}</span></div>
+    </div>
+    <label>Ek Discount Ekle (TL)</label>
+    <div class="flex-row mt-2">
+      <input type="number" class="form-control-s" id="ek-discount-input" placeholder="0" min="0">
+      <button class="btn-s btn-yellow-s" onclick="ekDiscountEkle('${musteriId}')">
+        <i class="fas fa-plus"></i> Ekle
+      </button>
+    </div>
+    <div class="text-muted-s mt-2" style="font-size:11px;">Bu işlem müşteriye verilen toplam discount'u artırır.</div>
+  `;
+
+  // Geçmiş — aylık gruplu, gün bazında özet
+  const oturumlar = data.oturumlar.filter(o => o.musteriId === musteriId && o.tarih).sort((a,b) => (b.tarih||'').localeCompare(a.tarih||''));
+  if (oturumlar.length === 0) {
+    document.getElementById('detay-gecmis').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i>Henüz bahis girişi yok</div>';
+  } else {
+    // Günlere grupla
+    const gunMap = {};
+    for (const o of oturumlar) {
+      if (!gunMap[o.tarih]) gunMap[o.tarih] = [];
+      gunMap[o.tarih].push(o);
+    }
+    const gunler = Object.keys(gunMap).sort((a,b) => b.localeCompare(a));
+
+    // Aylara grupla
+    const ayMap = {};
+    for (const tarih of gunler) {
+      const ayKey = tarih.slice(0, 7); // "2025-05"
+      if (!ayMap[ayKey]) ayMap[ayKey] = [];
+      ayMap[ayKey].push(tarih);
+    }
+
+    let html = '';
+    for (const ayKey of Object.keys(ayMap).sort((a,b) => b.localeCompare(a))) {
+      const [yil, ay] = ayKey.split('-');
+      const ayAdi = new Date(parseInt(yil), parseInt(ay)-1, 1).toLocaleString('tr-TR', { month:'long', year:'numeric' });
+
+      // Ay toplamları — FORMÜL: NET = Σkazanç − Σoynanan
+      let ayOynanan = 0, ayKazanc = 0, ayVerilen = 0;
+      for (const tarih of ayMap[ayKey]) {
+        for (const o of gunMap[tarih]) {
+          ayVerilen += o.verilenDiscount || 0;
+          for (const b of (o.bahisler || [])) {
+            ayOynanan += b.oynanan || 0;
+            ayKazanc  += b.kazanc  || 0;
+          }
+        }
+      }
+      const ayNet  = ayKazanc - ayOynanan;
+      const ayKayip = Math.max(0, -ayNet);
+      const ayHakedis = hesaplaHakedis(ayKayip); // bilgi amaçlı
+
+      html += `
+        <div style="margin-bottom: 20px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:linear-gradient(135deg,#1e3a6e,#1a2d5a); border-radius:10px; margin-bottom:8px;">
+            <span style="color:#fff; font-weight:700; font-size:13px;"><i class="fas fa-calendar-alt me-2"></i>${ayAdi}</span>
+            <span style="font-size:11px; color:rgba(255,255,255,.7);">
+              Kayıp: <strong style="color:#fca5a5;">${fmt(ayKayip)}</strong>
+              &nbsp;·&nbsp; Net: <strong style="${ayNet >= 0 ? 'color:#6ee7b7' : 'color:#fca5a5;'}">${ayNet >= 0 ? '+' : ''}${fmt(ayNet)}</strong>
+              &nbsp;·&nbsp; Verilen Disc: <strong style="color:#fde68a;">${fmt(ayVerilen)}</strong>
+            </span>
+          </div>
+          <table class="table-s" style="margin-bottom:0;">
+            <thead><tr>
+              <th>Tarih</th><th>Oyun</th><th>Oynanan</th><th>Kayıp</th><th>Net Sonuç</th><th>Discount Oranı</th><th>Hakediş</th><th>Verilen</th><th></th>
+            </tr></thead>
+            <tbody>
+              ${ayMap[ayKey].map(tarih => {
+                let gunOynanan = 0, gunKazanc = 0, gunVerilen = 0, gunOyunSayisi = 0;
+                const gunOturumIds = [];
+                for (const o of gunMap[tarih]) {
+                  gunVerilen += o.verilenDiscount || 0;
+                  gunOyunSayisi += (o.bahisler || []).length;
+                  gunOturumIds.push(o.id);
+                  for (const b of (o.bahisler || [])) {
+                    gunOynanan += b.oynanan || 0;
+                    gunKazanc  += b.kazanc  || 0;
+                  }
+                }
+                const gunNet  = gunKazanc - gunOynanan;
+                const gunKayip = Math.max(0, -gunNet);
+                const gunH = hesaplaHakedis(gunKayip);
+                const tarihObj = new Date(tarih + 'T12:00:00');
+                const tarihStr = tarihObj.toLocaleDateString('tr-TR', { weekday:'short', day:'numeric', month:'short' });
+                const kalanDiscount = gunH.tutar - gunVerilen;
+                return `<tr style="cursor:pointer;" onclick="openOturumModal('${gunOturumIds[0]}')">
+                  <td style="font-weight:600;">${tarihStr}</td>
+                  <td class="text-muted-s">${gunOyunSayisi} oyun${gunOturumIds.length > 1 ? ' <span style=\'font-size:10px;color:var(--accent);\'>('+gunOturumIds.length+' seans)</span>' : ''}</td>
+                  <td>${fmt(gunOynanan)}</td>
+                  <td class="text-red">${fmt(gunKayip)}</td>
+                  <td class="${gunNet >= 0 ? 'text-green' : 'text-red'} fw-bold">${gunNet >= 0 ? '+' : ''}${fmt(gunNet)}</td>
+                  <td>${gunH.band > 0 ? `<span style="background:${gunH.band>=20?'var(--accent)':'var(--yellow)'}20;color:${gunH.band>=20?'var(--accent)':'var(--yellow)'};padding:2px 8px;border-radius:4px;font-size:12px;font-weight:700;">%${gunH.band}</span>` : '<span class="text-muted-s">—</span>'}</td>
+                  <td style="font-weight:600;">${fmt(gunH.tutar)}</td>
+                  <td class="${gunVerilen > 0 ? 'text-yellow' : 'text-muted-s'}">${fmt(gunVerilen)}${kalanDiscount < 0 ? ' <i class="fas fa-exclamation-triangle text-red" title="Geri al!"></i>' : ''}</td>
+                  <td><i class="fas fa-eye text-muted-s"></i></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+    document.getElementById('detay-gecmis').innerHTML = html;
+  }
+}
+
+function musteriSil(musteriId) {
+  const data = getData();
+  const m = data.musteriler.find(x => x.id === musteriId);
+  if (!m) return;
+  if (aktifSube !== 'YÖNETİM' && m.sube !== aktifSube) {
+    toast('Bu müşteriyi silme izni yok!', 'error');
+    return;
+  }
+  const oturumSayisi = data.oturumlar.filter(o => o.musteriId === musteriId).length;
+  const mesaj = oturumSayisi > 0
+    ? `"${m.adSoyad}" silinecek.\n${oturumSayisi} oturum kaydı da silinecek.\n\nEmin misiniz?`
+    : `"${m.adSoyad}" silinecek. Emin misiniz?`;
+  if (!confirm(mesaj)) return;
+  data.musteriler = data.musteriler.filter(x => x.id !== musteriId);
+  data.oturumlar = data.oturumlar.filter(o => o.musteriId !== musteriId);
+  saveData(data);
+  toast(`${m.adSoyad} silindi`);
+  if (currentPage === 'detay') showPage('musteriler');
+  else renderMusteriler();
+}
+
+function ekDiscountEkle(musteriId) {
+  const data = getData();
+  const m = data.musteriler.find(x => x.id === musteriId);
+  if (!m || (aktifSube !== 'YÖNETİM' && m.sube !== aktifSube)) {
+    toast('Bu müşteriye discount ekleme izni yok!', 'error');
+    return;
+  }
+  const val = parseFloat(document.getElementById('ek-discount-input').value) || 0;
+  if (val <= 0) { toast('Geçerli tutar giriniz!', 'error'); return; }
+  // Boş bir "sadece discount" oturumu ekle
+  // YÖNETİM müşterinin kendi şubesine yazsın, sube kullanıcısı kendi şubesine yazsın
+  const oturumSube = (aktifSube === 'YÖNETİM') ? (m.sube || '') : (aktifSube || '');
+  data.oturumlar.push({
+    id: uid(), musteriId, tarih: new Date().toISOString().split('T')[0],
+    bahisler: [], toplamOynanan: 0, toplamNet: 0,
+    verilenDiscount: val, not: 'Manuel discount eklendi',
+    sube: oturumSube
+  });
+  saveData(data);
+  toast(`${fmt(val)} discount eklendi ✓`);
+  renderDetay(musteriId);
+}
+
+function yeniGirisIcinMusteriSec() {
+  // Müşteri detayından gelince: bu müşteri için yeni sekme aç
+  if (currentMusteriId) {
+    const mevcut = tabs.find(t => t.musteriId === currentMusteriId);
+    if (mevcut) {
+      aktifTabId = mevcut.tabId;
+      showPage('giris');
+    } else {
+      showPage('giris');
+      tabEkle(currentMusteriId);
+    }
+  } else {
+    showPage('giris');
+  }
+}
+
+// ===================== GÜNLÜK GİRİŞ — SEKMELER =====================
+let tabs = [];        // tüm açık sekmeler
+let aktifTabId = null;
+
+function yeniSatirObjesi() {
+  return { id: uid(), oynanan: '', kazanc: '' };
+}
+
+function yeniTab(musteriId) {
+  return {
+    tabId: uid(),
+    musteriId: musteriId || '',
+    tarih: getIsGunu(),
+    rows: [yeniSatirObjesi(), yeniSatirObjesi(), yeniSatirObjesi(),
+           yeniSatirObjesi(), yeniSatirObjesi()],
+    verilenDiscount: '',
+    not: ''
+  };
+}
+
+function renderGiris(musteriId) {
+  // YÖNETİM giriş yapamaz — sadece izleme
+  if (aktifSube === 'YÖNETİM') {
+    toast('YÖNETİM panelinden bahis girişi yapılamaz!', 'error');
+    showPage('dashboard');
+    return;
+  }
+  // Mevcut sekme yoksa ilk sekmeyi aç
+  if (tabs.length === 0) {
+    const t = yeniTab(musteriId || '');
+    tabs.push(t);
+    aktifTabId = t.tabId;
+  } else if (musteriId) {
+    // Belirli bir müşteri için gelindiyse, varsa o sekmeye geç, yoksa ekle
+    const mevcut = tabs.find(t => t.musteriId === musteriId);
+    if (mevcut) { aktifTabId = mevcut.tabId; }
+    else { tabEkle(musteriId); return; }
+  }
+  renderTabBar();
+  renderAktifTabIcerik();
+}
+
+function tabEkle(musteriId) {
+  const t = yeniTab(musteriId || '');
+  tabs.push(t);
+  aktifTabId = t.tabId;
+  // Bugün için kayıtlı oturum varsa yükle
+  if (musteriId) gunlukOturumYukle(t);
+  renderTabBar();
+  renderAktifTabIcerik();
+}
+
+function tabSec(tabId) {
+  if (aktifTabId === tabId) return;
+  tabVeriKaydet(); // aktif sekmenin form verilerini kaydet
+  aktifTabId = tabId;
+  renderTabBar();
+  renderAktifTabIcerik();
+}
+
+function tabKapat(tabId, e) {
+  e && e.stopPropagation();
+  const idx = tabs.findIndex(t => t.tabId === tabId);
+  if (idx === -1) return;
+  tabs.splice(idx, 1);
+  if (tabs.length === 0) {
+    aktifTabId = null;
+    renderTabBar();
+    document.getElementById('tab-content').innerHTML = `
+      <div class="tab-empty">
+        <i class="fas fa-users"></i>
+        <div style="font-size:15px; font-weight:600; margin-bottom:8px;">Müşteri Yok</div>
+        <div style="margin-bottom:18px;">Sağ üstteki "Müşteri Ekle" butonuna basın</div>
+        <button class="btn-s btn-primary-s" onclick="tabEkle()"><i class="fas fa-plus"></i> Müşteri Ekle</button>
+      </div>`;
+    return;
+  }
+  aktifTabId = tabs[Math.min(idx, tabs.length - 1)].tabId;
+  renderTabBar();
+  renderAktifTabIcerik();
+}
+
+function tabVeriKaydet() {
+  const tab = tabs.find(t => t.tabId === aktifTabId);
+  if (!tab) return;
+  const mSel = document.getElementById('giris-musteri');
+  const tarih = document.getElementById('giris-tarih');
+  const disc = document.getElementById('giris-verilen-discount');
+  const notEl = document.getElementById('giris-not');
+  if (mSel) tab.musteriId = mSel.value;
+  if (tarih) tab.tarih = tarih.value;
+  if (disc) tab.verilenDiscount = disc.value;
+  if (notEl) tab.not = notEl.value;
+  // rows already updated via updateRow()
+}
+
+function getAktifTab() {
+  return tabs.find(t => t.tabId === aktifTabId);
+}
+
+function renderTabBar() {
+  const bar = document.getElementById('tab-bar');
+  const data = getData();
+  bar.innerHTML = tabs.map(t => {
+    const m = data.musteriler.find(x => x.id === t.musteriId);
+    const label = m ? m.adSoyad : 'Müşteri Seçin';
+    const isAktif = t.tabId === aktifTabId;
+    return `<div class="tab-item ${isAktif ? 'aktif' : ''}" onclick="tabSec('${t.tabId}')">
+      <span class="tab-dot"></span>
+      <span>${label}</span>
+      <button class="tab-close" onclick="tabKapat('${t.tabId}', event)" title="Kapat">×</button>
+    </div>`;
+  }).join('') +
+  `<button class="tab-add-btn" onclick="tabEkle()" title="Yeni müşteri ekle">+</button>`;
+}
+
+function renderAktifTabIcerik() {
+  const tab = getAktifTab();
+  if (!tab) return;
+  const data = getData();
+  const musteriOptions = getSubeMusterileri(data).map(m =>
+    `<option value="${m.id}" ${m.id === tab.musteriId ? 'selected' : ''}>${m.adSoyad}</option>`
+  ).join('');
+
+  document.getElementById('tab-content').innerHTML = `
+    <div class="grid-2 mb-3">
+      <div>
+        <label>Müşteri Seç</label>
+        <select class="form-select-s" id="giris-musteri" onchange="tabMusteriDegis(this.value)">
+          <option value="">-- Müşteri Seçin --</option>
+          ${musteriOptions}
+        </select>
+      </div>
+      <div>
+        <label>Tarih</label>
+        <input type="date" class="form-control-s" id="giris-tarih" value="${tab.tarih}">
+      </div>
+    </div>
+
+    <div style="overflow-x:auto; margin-bottom:14px;">
+      <table class="bet-table">
+        <thead><tr>
+          <th style="width:7%; text-align:center;">#</th>
+          <th style="width:36%; text-align:right;">Oynanan (TL)</th>
+          <th style="width:36%; text-align:right;">Kazanç (TL)</th>
+          <th style="width:13%; text-align:center;">Durum</th>
+          <th style="width:8%; text-align:center;"></th>
+        </tr></thead>
+        <tbody id="bahis-satirlari"></tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td style="padding:10px 12px; color:var(--text-muted); font-size:12px;">TOPLAM</td>
+            <td style="padding:10px 12px; text-align:right;" id="toplam-oynanan">0 ₺</td>
+            <td style="padding:10px 12px; text-align:right;" id="toplam-net">0 ₺</td>
+            <td></td><td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div style="text-align:right; margin-bottom:14px;">
+      <button class="btn-s btn-ghost-s" onclick="yeniBahisSatirEkle()" style="font-size:12px;">
+        <i class="fas fa-plus"></i> Satır Ekle
+      </button>
+    </div>
+
+    <div class="grid-2">
+      <div class="hakedis-panel">
+        <div style="font-size:13px; font-weight:700; margin-bottom:14px;">
+          <i class="fas fa-calculator me-2 text-yellow"></i>Hakediş Hesaplaması
+        </div>
+        <div class="hakedis-row"><span class="hakedis-label">Bugün Net Sonuç</span><span class="hakedis-val" id="h-net-sonuc">0 ₺</span></div>
+        <div class="hakedis-row"><span class="hakedis-label">Bugün Toplam Kayıp</span><span class="hakedis-val text-red" id="h-kayip-toplam">0 ₺</span></div>
+        <div class="hakedis-row"><span class="hakedis-label">Discount Oranı</span><span class="hakedis-val" id="h-oran">—</span></div>
+        <div id="h-band-info" style="margin:8px 0;"></div>
+        <div class="hakedis-row"><span class="hakedis-label" style="font-weight:600;">Toplam Hakediş</span><span class="hakedis-val hakedis-main" id="h-hakedis">0 ₺</span></div>
+        <div class="hakedis-row"><span class="hakedis-label">Bugün Verilen Discount</span><span class="hakedis-val text-muted-s" id="h-verilen-eski">0 ₺</span></div>
+        <hr class="separator">
+        <div class="hakedis-row"><span class="hakedis-label" style="font-weight:700;">Net Kalan Hakediş</span><span class="hakedis-val hakedis-kalan" id="h-kalan">0 ₺</span></div>
+        <div id="h-geri-al-uyari" style="display:none; margin-top:12px; padding:12px 14px; background:rgba(231,76,60,.15); border:1px solid rgba(231,76,60,.4); border-radius:8px; color:var(--red);">
+          <div style="font-weight:700; font-size:13px;"><i class="fas fa-exclamation-triangle me-2"></i>MÜŞTERİDEN GERİ AL</div>
+          <div style="font-size:22px; font-weight:800; margin-top:4px;" id="h-geri-al-tutar">0 ₺</div>
+          <div style="font-size:11px; margin-top:4px; opacity:.8;">Verilen discount hakediş'i aşıyor</div>
+        </div>
+        <hr class="separator" style="margin-top:14px;">
+        <div style="font-size:12px; font-weight:700; color:var(--text-muted); letter-spacing:.5px; margin-bottom:8px; margin-top:4px;">BU AY</div>
+        <div class="hakedis-row"><span class="hakedis-label">Net Sonuç</span><span class="hakedis-val" id="h-ay-net">—</span></div>
+        <div class="hakedis-row"><span class="hakedis-label">Toplam Kayıp</span><span class="hakedis-val text-red" id="h-ay-kayip">—</span></div>
+        <div class="hakedis-row"><span class="hakedis-label">Verilen Discount</span><span class="hakedis-val" id="h-ay-discount">—</span></div>
+      </div>
+
+      <div class="card-s" style="background:var(--bg-card);">
+        <strong style="font-size:13px; display:block; margin-bottom:14px;">Bu Oturum Discount</strong>
+        <div class="mb-3">
+          <label>Verilen Discount (TL)</label>
+          <input type="number" class="form-control-s" id="giris-verilen-discount"
+            placeholder="0" value="${tab.verilenDiscount}" oninput="girisHakedisGuncelle()">
+        </div>
+        <div style="background:var(--bg-input); border-radius:8px; padding:14px;">
+          <div class="flex-between mb-2"><span class="text-muted-s">Hakediş</span><span style="font-weight:600;" id="d-hakedis">0 ₺</span></div>
+          <div class="flex-between mb-2"><span class="text-muted-s">Verilen (Önceki + Bu)</span><span style="font-weight:600;" id="d-verilen">0 ₺</span></div>
+          <hr class="separator">
+          <div class="flex-between"><span style="font-weight:700;">Kalan</span><span style="font-weight:700; font-size:18px;" id="d-kalan">0 ₺</span></div>
+        </div>
+        <div class="mb-3 mt-3">
+          <label>Not (İsteğe Bağlı)</label>
+          <input type="text" class="form-control-s" id="giris-not" placeholder="Örn: Canlı bahis..." value="${tab.not || ''}">
+        </div>
+        <div class="flex-row mt-3">
+          <button class="btn-s btn-success-s" style="flex:1; justify-content:center; font-size:14px; padding:11px;" onclick="oturumKaydet()">
+            <i class="fas fa-save"></i> KAYDET — MÜŞTERİ AYRILINCA
+          </button>
+          <button class="btn-s btn-ghost-s" onclick="girisTemizle()" title="Temizle"><i class="fas fa-trash"></i></button>
+        </div>
+        <div style="text-align:center; color:var(--text-muted); font-size:11px; margin-top:8px;">
+          <i class="fas fa-info-circle me-1"></i>Discount canlı görünür · Müşteri ayrılırken kaydedin
+        </div>
+      </div>
+    </div>
+  `;
+
+  renderBahisSatirlari();
+  girisHakedisGuncelle();
+}
+
+function tabMusteriDegis(musteriId) {
+  const tab = getAktifTab();
+  if (!tab) return;
+  if (musteriId) {
+    const data = getData();
+    const m = data.musteriler.find(x => x.id === musteriId);
+    if (m && aktifSube !== 'YÖNETİM' && m.sube !== aktifSube) {
+      toast('Bu müşteriyi seçme izni yok!', 'error');
+      return;
+    }
+  }
+  tab.musteriId = musteriId;
+  // Bugün bu müşteri için kayıtlı oturum varsa satırları yükle
+  gunlukOturumYukle(tab);
+  renderTabBar();
+  renderAktifTabIcerik();
+}
+
+// Bugün için kayıtlı tek oturumu tab'a yükle (varsa)
+function gunlukOturumYukle(tab) {
+  if (!tab.musteriId || !tab.tarih) return;
+  const data = getData();
+  const mevcutOturum = data.oturumlar.find(o =>
+    o.musteriId === tab.musteriId && o.tarih === tab.tarih && o.sube === aktifSube
+  );
+  if (mevcutOturum && (mevcutOturum.bahisler || []).length > 0) {
+    // Kayıtlı satırları yükle + 3 boş satır ekle
+    tab.rows = mevcutOturum.bahisler.map(b => ({
+      oynanan: b.oynanan != null ? String(b.oynanan) : '',
+      kazanc:  b.kazanc  != null ? String(b.kazanc)  : ''
+    }));
+    tab.rows.push(yeniSatirObjesi(), yeniSatirObjesi(), yeniSatirObjesi());
+    tab.verilenDiscount = String(mevcutOturum.verilenDiscount || '');
+    tab.not = mevcutOturum.not || '';
+  }
+}
+
+function yeniBahisSatirEkle() {
+  const tab = getAktifTab();
+  if (!tab) return;
+  tab.rows.push(yeniSatirObjesi());
+  renderBahisSatirlari();
+}
+
+function renderBahisSatirlari() {
+  const tab = getAktifTab();
+  if (!tab) return;
+  const tbody = document.getElementById('bahis-satirlari');
+  if (!tbody) return;
+  tbody.innerHTML = tab.rows.map((r, i) => {
+    const kazandimi = parseFloat(r.kazanc) > 0;
+    const oynananVar = parseFloat(r.oynanan) > 0;
+    let durum = !oynananVar && !r.kazanc
+      ? `<span style="color:var(--text-muted);font-size:18px;">—</span>`
+      : kazandimi
+        ? `<span style="color:var(--green);font-size:20px;font-weight:700;">✓</span>`
+        : `<span style="color:var(--red);font-size:20px;font-weight:700;">✗</span>`;
+    return `<tr>
+      <td style="text-align:center;color:var(--text-muted);font-size:12px;">${i+1}</td>
+      <td><input type="number" placeholder="0" value="${r.oynanan}" style="text-align:right;" id="oy-${i}"
+        oninput="updateRow(${i},'oynanan',this.value)" onkeydown="enterNav(event,'oy',${i})"></td>
+      <td><input type="number" placeholder="Kazanç varsa yaz" value="${r.kazanc}" id="kz-${i}"
+        style="text-align:right;color:${kazandimi?'var(--green)':'var(--text)'};"
+        oninput="updateRow(${i},'kazanc',this.value)" onkeydown="enterNav(event,'kz',${i})"></td>
+      <td style="text-align:center;">${durum}</td>
+      <td style="text-align:center;"><button class="delete-row-btn" onclick="satirSil(${i})"><i class="fas fa-times"></i></button></td>
+    </tr>`;
+  }).join('');
+  updateToplam();
+  girisHakedisGuncelle();
+}
+
+function updateRow(i, field, val) {
+  const tab = getAktifTab();
+  if (!tab || !tab.rows[i]) return;
+  tab.rows[i][field] = val;
+  const tbody = document.getElementById('bahis-satirlari');
+  const kazandimi = parseFloat(tab.rows[i].kazanc) > 0;
+  const oynananVar = parseFloat(tab.rows[i].oynanan) > 0;
+  const rows = tbody.querySelectorAll('tr');
+  if (rows[i]) {
+    const durumCell = rows[i].cells[3];
+    durumCell.innerHTML = !oynananVar && !tab.rows[i].kazanc
+      ? `<span style="color:var(--text-muted);font-size:18px;">—</span>`
+      : kazandimi
+        ? `<span style="color:var(--green);font-size:20px;font-weight:700;">✓</span>`
+        : `<span style="color:var(--red);font-size:20px;font-weight:700;">✗</span>`;
+    const kzInput = rows[i].cells[2].querySelector('input');
+    if (kzInput) kzInput.style.color = kazandimi ? 'var(--green)' : 'var(--text)';
+  }
+  updateToplam();
+  girisHakedisGuncelle();
+}
+
+function satirSil(i) {
+  const tab = getAktifTab();
+  if (!tab) return;
+  if (tab.rows.length <= 1) { toast('En az bir satır olmalı!', 'error'); return; }
+  tab.rows.splice(i, 1);
+  renderBahisSatirlari();
+  girisHakedisGuncelle();
+}
+
+function enterNav(e, field, i) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (field === 'oy') {
+    const next = document.getElementById('kz-' + i);
+    if (next) { next.focus(); next.select(); }
+  } else {
+    const tab = getAktifTab();
+    const nextIdx = i + 1;
+    if (tab && nextIdx >= tab.rows.length) {
+      tab.rows.push(yeniSatirObjesi());
+      renderBahisSatirlari();
+    }
+    setTimeout(() => {
+      const next = document.getElementById('oy-' + nextIdx);
+      if (next) { next.focus(); next.select(); }
+    }, 20);
+  }
+}
+
+function updateToplam() {
+  const tab = getAktifTab();
+  if (!tab) return;
+  let toplamOynanan = 0, toplamNet = 0;
+  for (const r of tab.rows) {
+    const oynanan = parseFloat(r.oynanan) || 0;
+    const kazanc = parseFloat(r.kazanc) || 0;
+    toplamOynanan += oynanan;
+    if (oynanan > 0) toplamNet += (kazanc - oynanan);
+  }
+  const toEl = document.getElementById('toplam-oynanan');
+  const tnEl = document.getElementById('toplam-net');
+  if (toEl) toEl.textContent = fmt(toplamOynanan);
+  if (tnEl) {
+    tnEl.textContent = (toplamNet >= 0 ? '+' : '-') + fmt(Math.abs(toplamNet));
+    tnEl.style.color = toplamNet >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+  // Canlı taslak — debounced Firestore sync
+  scheduleLiveDraft();
+}
+
+// ---- Canlı Taslak (Live Draft) ----
+// liveDraftTimer yukarıda module başında tanımlı
+
+function scheduleLiveDraft() {
+  if (!aktifSube || aktifSube === 'YÖNETİM' || !db) return;
+  clearTimeout(liveDraftTimer);
+  liveDraftTimer = setTimeout(pushLiveDraft, 800);
+}
+
+function pushLiveDraft() {
+  if (!aktifSube || aktifSube === 'YÖNETİM' || !db) return;
+  const tab = getAktifTab();
+  if (!tab || !tab.musteriId || !tab.tarih) return;
+
+  const data = getData();
+  const musteri = data.musteriler.find(m => m.id === tab.musteriId);
+  let toplamOynanan = 0, toplamNet = 0;
+  for (const r of tab.rows) {
+    const oynanan = parseFloat(r.oynanan) || 0;
+    const kazanc  = parseFloat(r.kazanc)  || 0;
+    toplamOynanan += oynanan;
+    if (oynanan > 0) toplamNet += (kazanc - oynanan);
+  }
+  if (toplamOynanan === 0) { clearLiveDraft(); return; }
+
+  const draft = {
+    musteriId:      tab.musteriId,
+    musteriAdi:     musteri ? musteri.adSoyad : '?',
+    tarih:          tab.tarih,
+    toplamOynanan,
+    toplamNet,
+    timestamp:      Date.now()
+  };
+
+  db.collection('data').doc('live').set(
+    { [aktifSube]: draft },
+    { merge: true }
+  ).catch(e => console.warn('Live draft hatası:', e));
+}
+
+function clearLiveDraft() {
+  if (!db || !aktifSube || aktifSube === 'YÖNETİM') return;
+  // Firestore field'ı tamamen sil (null bırakıp dökümanı şişirme)
+  const DeleteFV = (firebase && firebase.firestore && firebase.firestore.FieldValue && firebase.firestore.FieldValue.delete)
+    ? firebase.firestore.FieldValue.delete()
+    : null;
+  db.collection('data').doc('live').set(
+    { [aktifSube]: DeleteFV || null },
+    { merge: true }
+  ).catch(() => {});
+}
+
+function renderCanliGirisler() {
+  const panel = document.getElementById('canli-panel');
+  const el    = document.getElementById('canli-girisler');
+  if (!panel || !el) return;
+
+  // YÖNETİM tüm şubeleri, şube kullanıcısı sadece kendi taslağını görür
+  const gorunenSubeler = aktifSube === 'YÖNETİM'
+    ? ['ALSANCAK','ZEYTİNLİK','KAŞGAR','İTİMAT']
+    : [aktifSube];
+  const aktifler = gorunenSubeler
+    .map(s => ({ sube: s, draft: appLive[s] }))
+    .filter(x => x.draft && x.draft.toplamOynanan > 0);
+
+  if (aktifler.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = 'block';
+  el.innerHTML = aktifler.map(({ sube, draft }) => {
+    const net = draft.toplamNet || 0;
+    const now = Date.now();
+    const dakika = Math.floor((now - (draft.timestamp || now)) / 60000);
+    const sure = dakika < 1 ? 'Az önce' : dakika + ' dk önce';
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div>
+          <span style="font-size:12px;background:#dcfce7;color:#166534;border-radius:4px;padding:2px 8px;font-weight:700;margin-right:8px;">${sube}</span>
+          <span style="font-size:14px;font-weight:700;">${draft.musteriAdi || '—'}</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:8px;">${fmtDate(draft.tarih)} · ${sure}</span>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:13px;color:var(--text-muted);">Oynanan: <strong>${fmt(draft.toplamOynanan)}</strong></div>
+          <div style="font-size:13px;font-weight:700;color:${net>=0?'var(--green)':'var(--red)'};">${net>=0?'+':''}${fmt(net)}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function girisHakedisGuncelle() {
+  const tab = getAktifTab();
+  if (!tab) return;
+  // Her zaman DOM'dan oku — tab.musteriId bazen stale kalabiliyor
+  const mSelEl = document.getElementById('giris-musteri');
+  const musteriId = (mSelEl && mSelEl.value) ? mSelEl.value : tab.musteriId;
+  if (mSelEl && mSelEl.value) tab.musteriId = mSelEl.value; // sync
+  const tarihEl = document.getElementById('giris-tarih');
+  const isGunu = (tarihEl && tarihEl.value) ? tarihEl.value : tab.tarih;
+
+  // ── Tüm bugünkü veri tab.rows'da (tek oturum modeli) ──────────────
+  // FORMÜL: NET = Σkazanç − Σoynanan (saf oyun sonucu, discount ETKİSİZ)
+  // Discount sadece kalan = hakedis − verilen hesabında kullanılır
+  let toplamOynananAll = 0, toplamKazancAll = 0;
+  for (const r of tab.rows) {
+    const oynanan = parseFloat(r.oynanan) || 0;
+    const kazanc  = parseFloat(r.kazanc)  || 0;
+    if (oynanan > 0) { toplamOynananAll += oynanan; toplamKazancAll += kazanc; }
+  }
+  const toplamGunNet = toplamKazancAll - toplamOynananAll; // ham oyun sonucu
+  // Hakedis bazı = ham kayıp — discount bu hesaba GİRMEZ
+  const toplamKayip = Math.max(0, -toplamGunNet);
+
+  const verilenBuOturum = parseFloat(document.getElementById('giris-verilen-discount')?.value) || 0;
+  const toplamVerilen = verilenBuOturum;
+
+  // Kâr/zarar durumu ham oyun sonucuna göre
+  const musteriKarda = toplamGunNet > 0;
+
+  const h = hesaplaHakedis(toplamKayip);
+  const kalan = h.tutar - toplamVerilen;
+  const oranColor = h.band > 0 ? (h.band >= 20 ? 'var(--accent)' : 'var(--yellow)') : 'var(--text-muted)';
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const setHtml = (id, val) => { const el = document.getElementById(id); if (el) el.innerHTML = val; };
+
+  // Net sonuç — müşterinin kendi parasıyla gerçek net (discount dahil edilmez)
+  const netEl = document.getElementById('h-net-sonuc');
+  if (netEl) {
+    netEl.textContent = (toplamGunNet >= 0 ? '+' : '') + fmt(toplamGunNet);
+    netEl.style.color = toplamGunNet > 0 ? 'var(--green)' : toplamGunNet < 0 ? 'var(--red)' : 'var(--text-muted)';
+    netEl.style.fontWeight = toplamGunNet !== 0 ? '700' : '400';
+  }
+
+  // Toplam kayıp = ham net kayıp (hakedis bazı, discount bağımsız)
+  set('h-kayip-toplam', fmt(toplamKayip));
+
+  const kalanEl = document.getElementById('h-kalan');
+  const uyariEl = document.getElementById('h-geri-al-uyari');
+  const dKalanEl = document.getElementById('d-kalan');
+
+  // d-verilen her zaman güncelle (KÂRDA dahil)
+  const dVerilenEl = document.getElementById('d-verilen');
+  if (dVerilenEl) {
+    dVerilenEl.textContent = fmt(toplamVerilen);
+    dVerilenEl.style.color = toplamVerilen > 0 ? 'var(--red)' : 'var(--text-muted)';
+  }
+
+  if (musteriKarda && toplamVerilen > 0) {
+    // MÜŞTERİ KÂRDA + önceden discount verilmiş → TÜM DİSCOUNTU GERİ AL
+    setHtml('h-oran', `<span style="color:var(--red);font-size:16px;">KÂRDA</span>`);
+    setHtml('h-band-info', `<div style="padding:10px 14px;border-radius:9px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.4);color:var(--red);font-size:12.5px;font-weight:600;"><i class="fas fa-exclamation-triangle me-1"></i>Müşteri kârda — hakedis yok<br><span style="font-size:22px;font-weight:800;color:var(--green);">+${fmt(toplamGunNet)}</span> <span style="font-size:11px;font-weight:400;">bugünkü kâr</span></div>`);
+    set('h-hakedis', '0 ₺');
+    set('h-verilen-eski', fmt(verilenBuOturum));
+    set('d-hakedis', '0 ₺');
+    if (kalanEl) { kalanEl.textContent = '-' + fmt(toplamVerilen); kalanEl.style.color = 'var(--red)'; }
+    if (dKalanEl) { dKalanEl.textContent = '-' + fmt(toplamVerilen); dKalanEl.style.color = 'var(--red)'; }
+    if (uyariEl) { uyariEl.style.display = 'block'; }
+    set('h-geri-al-tutar', fmt(toplamVerilen));
+  } else if (musteriKarda) {
+    // MÜŞTERİ KÂRDA, discount verilmemiş → hakedis yok
+    setHtml('h-oran', `<span style="color:var(--green);font-size:16px;">KÂRDA</span>`);
+    setHtml('h-band-info', `<div style="padding:10px 14px;border-radius:9px;background:rgba(5,150,105,.1);border:1px solid rgba(5,150,105,.3);color:var(--green);font-size:12.5px;font-weight:600;"><i class="fas fa-check-circle me-1"></i>Müşteri kârda — hakedis yok<br><span style="font-size:22px;font-weight:800;">+${fmt(toplamGunNet)}</span> <span style="font-size:11px;font-weight:400;">bugünkü kâr</span></div>`);
+    set('h-hakedis', '0 ₺');
+    set('h-verilen-eski', fmt(verilenBuOturum));
+    set('d-hakedis', '0 ₺');
+    if (kalanEl) { kalanEl.textContent = '0 ₺'; kalanEl.style.color = 'var(--text-muted)'; }
+    if (dKalanEl) { dKalanEl.textContent = '0 ₺'; dKalanEl.style.color = 'var(--text-muted)'; }
+    if (uyariEl) uyariEl.style.display = 'none';
+  } else {
+    // MÜŞTERİ ZARARDA → normal hakedis hesabı
+    setHtml('h-oran', `<span style="color:${oranColor};font-size:18px;">%${h.band}</span>`);
+    setHtml('h-band-info', bandInfoHtml(toplamKayip, h));
+    set('h-hakedis', fmt(h.tutar));
+    set('h-verilen-eski', fmt(verilenBuOturum));
+    set('d-hakedis', fmt(h.tutar));
+    if (kalanEl) {
+      if (kalan < 0) {
+        // Verilen hakedişten fazla → fazlayı geri al
+        kalanEl.textContent = '-' + fmt(Math.abs(kalan));
+        kalanEl.style.color = 'var(--red)';
+        if (uyariEl) { uyariEl.style.display = 'block'; set('h-geri-al-tutar', fmt(Math.abs(kalan))); }
+      } else {
+        kalanEl.textContent = fmt(kalan);
+        kalanEl.style.color = kalan > 0 ? 'var(--accent)' : 'var(--text-muted)';
+        if (uyariEl) uyariEl.style.display = 'none';
+      }
+    }
+    if (dKalanEl) {
+      dKalanEl.textContent = kalan < 0 ? '-' + fmt(Math.abs(kalan)) : fmt(kalan);
+      dKalanEl.style.color = kalan < 0 ? 'var(--red)' : kalan > 0 ? 'var(--accent)' : 'var(--text-muted)';
+    }
+  }
+
+  // Bu Ay özeti: geçmiş günler saved session'dan, bugün tab.rows'dan
+  if (musteriId && isGunu) {
+    const ayYil = isGunu.substring(0, 7);
+    const data2 = getData();
+    // Bugün HARİÇ bu ay oturumları
+    const ayOturumlar = data2.oturumlar.filter(o =>
+      o.musteriId === musteriId && o.tarih && o.tarih.startsWith(ayYil) && o.tarih !== isGunu
+    );
+    let ayKazancToplam = 0, ayOynananToplam = 0, ayDiscBase = 0;
+    for (const o of ayOturumlar) {
+      ayDiscBase += o.verilenDiscount || 0;
+      for (const b of (o.bahisler || [])) {
+        // b.kazanc ve b.oynanan her zaman ham veri — sonucTutar yerine bunları kullan
+        if ((b.oynanan || 0) > 0) {
+          ayOynananToplam += b.oynanan || 0;
+          ayKazancToplam  += b.kazanc  || 0;
+        }
+      }
+    }
+    // Bugün: tab.rows'dan (kaydedilmiş + kaydedilmemiş satırlar birlikte)
+    for (const r of tab.rows) {
+      const oynanan = parseFloat(r.oynanan) || 0;
+      const kazanc  = parseFloat(r.kazanc)  || 0;
+      if (oynanan > 0) { ayOynananToplam += oynanan; ayKazancToplam += kazanc; }
+    }
+    ayDiscBase += parseFloat(document.getElementById('giris-verilen-discount')?.value) || 0;
+    // Ham oyun sonucu — discount ETKİSİZ
+    const ayNetToplam    = ayKazancToplam - ayOynananToplam;
+    const ayKayipToplam  = Math.max(0, -ayNetToplam);
+    const ayDiscountToplam = ayDiscBase;
+
+    const ayNetEl = document.getElementById('h-ay-net');
+    if (ayNetEl) {
+      ayNetEl.textContent = (ayNetToplam >= 0 ? '+' : '') + fmt(ayNetToplam);
+      ayNetEl.style.color = ayNetToplam > 0 ? 'var(--green)' : ayNetToplam < 0 ? 'var(--red)' : 'var(--text-muted)';
+      ayNetEl.style.fontWeight = ayNetToplam !== 0 ? '700' : '400';
+    }
+    const ayKayipEl = document.getElementById('h-ay-kayip');
+    if (ayKayipEl) ayKayipEl.textContent = fmt(ayKayipToplam);
+    const ayDiscEl = document.getElementById('h-ay-discount');
+    if (ayDiscEl) ayDiscEl.textContent = ayDiscountToplam > 0 ? fmt(ayDiscountToplam) : '—';
+  }
+}
+
+function oturumKaydet() {
+  tabVeriKaydet();
+  const tab = getAktifTab();
+  if (!tab) return;
+  if (!tab.musteriId) { toast('Müşteri seçiniz!', 'error'); return; }
+  if (!tab.tarih) { toast('Tarih seçiniz!', 'error'); return; }
+  const doluSatirlar = tab.rows.filter(r => parseFloat(r.oynanan) > 0);
+  if (doluSatirlar.length === 0) { toast('En az bir oynanan tutar giriniz!', 'error'); return; }
+
+  let toplamOynanan = 0, toplamNet = 0;
+  const bahisler = doluSatirlar.map(r => {
+    const oynanan = parseFloat(r.oynanan) || 0;
+    const kazanc  = parseFloat(r.kazanc)  || 0;
+    const sonucTutar = kazanc - oynanan; // NET: kazanç − oynanan (her bahis için)
+    toplamOynanan += oynanan;
+    toplamNet     += sonucTutar;
+    return { oynanan, kazanc, sonuc: sonucTutar > 0 ? 'kazanc' : 'kayip', sonucTutar };
+  });
+
+  const verilenDiscount = parseFloat(tab.verilenDiscount) || 0;
+  const data = getData();
+
+  // Aynı gün + aynı şube için zaten oturum var mı? → güncelle, yoksa yeni oluştur
+  const mevcutIdx = data.oturumlar.findIndex(o =>
+    o.musteriId === tab.musteriId && o.tarih === tab.tarih && o.sube === aktifSube
+  );
+  if (mevcutIdx >= 0) {
+    data.oturumlar[mevcutIdx] = {
+      ...data.oturumlar[mevcutIdx],
+      bahisler, toplamOynanan, toplamNet, verilenDiscount, not: tab.not,
+      sube: aktifSube || ''
+    };
+  } else {
+    data.oturumlar.push({
+      id: uid(), musteriId: tab.musteriId, tarih: tab.tarih,
+      bahisler, toplamOynanan, toplamNet, verilenDiscount, not: tab.not,
+      sube: aktifSube || ''
+    });
+  }
+
+  saveData(data);
+  clearLiveDraft(); // Kaydet sonrası canlı taslağı temizle
+  const m = data.musteriler.find(x => x.id === tab.musteriId);
+  toast(`${m ? m.adSoyad : 'Müşteri'} — kaydedildi ✓`);
+  // Satırları silme — müşteri aynı oturuma devam edebilsin
+  // Sadece fazladan 2 boş satır ekle
+  tab.rows.push(yeniSatirObjesi(), yeniSatirObjesi());
+  renderBahisSatirlari();
+}
+
+function girisTemizle() {
+  const tab = getAktifTab();
+  if (!tab) return;
+  tab.rows = [yeniSatirObjesi(), yeniSatirObjesi(), yeniSatirObjesi(),
+              yeniSatirObjesi(), yeniSatirObjesi()];
+  tab.verilenDiscount = '';
+  tab.not = '';
+  const disc = document.getElementById('giris-verilen-discount');
+  const notEl = document.getElementById('giris-not');
+  if (disc) disc.value = '';
+  if (notEl) notEl.value = '';
+  renderBahisSatirlari();
+  girisHakedisGuncelle();
+}
+
+// ===================== OTURUM MODAL =====================
+function openOturumModal(oturumId) {
+  currentOturumId = oturumId;
+  const data = getData();
+  const o = data.oturumlar.find(x => x.id === oturumId);
+  if (!o) return;
+  if (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube) {
+    toast('Bu oturuma erişim izni yok!', 'error');
+    currentOturumId = null;
+    return;
+  }
+  const m = data.musteriler.find(x => x.id === o.musteriId);
+
+  let bahisHtml = '';
+  if ((o.bahisler||[]).length > 0) {
+    bahisHtml = `<table class="table-s" style="margin-top:12px;">
+      <thead><tr><th>#</th><th>Oynanan</th><th>Kazanç</th><th>Durum</th><th>Net</th></tr></thead>
+      <tbody>${o.bahisler.map((b, idx) => {
+        const net = (b.kazanc || 0) - (b.oynanan || 0);
+        const isKazanc = net > 0;
+        return `<tr>
+          <td style="color:var(--text-muted);">${idx+1}</td>
+          <td>${fmt(b.oynanan)}</td>
+          <td>${isKazanc ? `<span class="text-green fw-bold">${fmt(b.kazanc)}</span>` : '<span class="text-muted-s">—</span>'}</td>
+          <td><span style="font-size:18px; font-weight:700; color:${isKazanc ? 'var(--green)' : 'var(--red)'};">${isKazanc ? '✓' : '✗'}</span></td>
+          <td class="${net >= 0 ? 'text-green' : 'text-red'} fw-bold">${net >= 0 ? '+' : ''}${fmt(net)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }
+
+  const net = o.toplamNet || 0;
+  document.getElementById('oturum-modal-icerik').innerHTML = `
+    <div class="grid-2 mb-3">
+      <div><label>Müşteri</label><div style="font-weight:700;">${m ? m.adSoyad : 'Bilinmiyor'}</div></div>
+      <div><label>Tarih</label><div style="font-weight:700;">${fmtDate(o.tarih)}</div></div>
+    </div>
+    <div class="grid-3 mb-3">
+      <div class="card-s" style="padding:12px;"><label>Toplam Oynanan</label><div class="fw-bold">${fmt(o.toplamOynanan)}</div></div>
+      <div class="card-s" style="padding:12px;"><label>Net Sonuç</label><div class="fw-bold ${net >= 0 ? 'text-green' : 'text-red'}">${fmt(net)}</div></div>
+      <div class="card-s" style="padding:12px;"><label>Verilen Discount</label><div class="fw-bold text-yellow">${fmt(o.verilenDiscount)}</div></div>
+    </div>
+    ${o.not ? `<div class="text-muted-s mb-3"><i class="fas fa-sticky-note me-1"></i>${o.not}</div>` : ''}
+    ${bahisHtml}
+  `;
+  document.getElementById('oturum-modal').classList.add('show');
+}
+
+function closeOturumModal() {
+  document.getElementById('oturum-modal').classList.remove('show');
+  currentOturumId = null;
+}
+
+function oturumSil() {
+  if (!currentOturumId) return;
+  const data = getData();
+  const o = data.oturumlar.find(x => x.id === currentOturumId);
+  if (!o || (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube)) {
+    toast('Bu oturumu silme izni yok!', 'error');
+    return;
+  }
+  if (!confirm('Bu oturumu silmek istediğinize emin misiniz?')) return;
+  data.oturumlar = data.oturumlar.filter(o => o.id !== currentOturumId);
+  saveData(data);
+  closeOturumModal();
+  toast('Oturum silindi');
+  if (currentPage === 'detay') renderDetay(currentMusteriId);
+  else if (currentPage === 'gecmis') renderGecmis();
+}
+
+// ===================== AYLIK RAPOR =====================
+function renderRaporlar() {
+  // Yıl seçenekleri
+  const data = getData();
+  const yillar = new Set();
+  yillar.add(new Date().getFullYear());
+  for (const o of data.oturumlar) {
+    if (o.tarih) yillar.add(parseInt(o.tarih.substring(0, 4)));
+  }
+  const yilSel = document.getElementById('rapor-yil');
+  const aySel  = document.getElementById('rapor-ay');
+  // İlk açılışta her zaman mevcut ay/yılı seç
+  if (!yilSel._initialized) {
+    yilSel._initialized = true;
+    aySel.value  = new Date().getMonth() + 1;
+  }
+  const mevcutYil = yilSel.value || new Date().getFullYear();
+  yilSel.innerHTML = [...yillar].sort((a,b) => b-a).map(y => `<option value="${y}" ${y == mevcutYil ? 'selected' : ''}>${y}</option>`).join('');
+  if (!yilSel.value) yilSel.value = new Date().getFullYear();
+  raporGoster();
+}
+
+function raporGoster() {
+  const ay = parseInt(document.getElementById('rapor-ay').value);
+  const yil = parseInt(document.getElementById('rapor-yil').value);
+  if (!ay || !yil) return;
+
+  const data = getData();
+  const ayOturumlar = data.oturumlar.filter(o => {
+    if (!o.tarih) return false;
+    const d = new Date(o.tarih + 'T00:00:00');
+    if (d.getMonth() + 1 !== ay || d.getFullYear() !== yil) return false;
+    // Şube izolasyonu: YÖNETİM dışı şubeler yalnızca kendi oturumlarını görür
+    if (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube) return false;
+    return true;
+  });
+
+  let ayOynanan = 0, ayKazanc = 0, ayDiscount = 0;
+  for (const o of ayOturumlar) {
+    ayDiscount += o.verilenDiscount || 0;
+    // FORMÜL: NET = Σkazanç − Σoynanan (ham veriden hesapla)
+    for (const b of (o.bahisler || [])) {
+      ayOynanan += b.oynanan || 0;
+      ayKazanc  += b.kazanc  || 0;
+    }
+  }
+  // Ham oyun sonucu — discount ETKİSİZ, sadece kalan hesabında kullanılır
+  const ayNet   = ayKazanc - ayOynanan;
+  const ayKayip = Math.max(0, -ayNet);
+
+  document.getElementById('rapor-ozet-stats').innerHTML = `
+    <div class="card-s"><h6>Bu Ay Toplam Oynanan</h6><div class="stat-val blue">${fmt(ayOynanan)}</div><div class="text-muted-s mt-3">${ayOturumlar.length} oturum</div></div>
+    <div class="card-s"><h6>Bu Ay Net Sonuç</h6><div class="stat-val ${ayNet >= 0 ? 'green' : 'red'}">${ayNet >= 0 ? '+' : ''}${fmt(ayNet)}</div><div class="text-muted-s mt-3" style="font-size:11px;">Kayıp: ${fmt(ayKayip)}</div></div>
+    <div class="card-s"><h6>Bu Ay Verilen Discount</h6><div class="stat-val yellow">${fmt(ayDiscount)}</div></div>
+  `;
+
+  // Müşteri bazlı — her günün hakedişi ayrı hesapla, topla (günlük sıfırlama sistemi)
+  const musteriMap = {};
+  for (const o of ayOturumlar) {
+    if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { oynanan: 0, kazanc: 0, discount: 0, sayi: 0, gunler: {} };
+    const ms = musteriMap[o.musteriId];
+    ms.discount += o.verilenDiscount || 0;
+    ms.sayi++;
+    if (!ms.gunler[o.tarih]) ms.gunler[o.tarih] = { oynanan: 0, kazanc: 0, verilen: 0 };
+    ms.gunler[o.tarih].verilen += o.verilenDiscount || 0;
+    // FORMÜL: NET = Σkazanç − Σoynanan
+    for (const b of (o.bahisler || [])) {
+      ms.oynanan += b.oynanan || 0;
+      ms.kazanc  += b.kazanc  || 0;
+      ms.gunler[o.tarih].oynanan += b.oynanan || 0;
+      ms.gunler[o.tarih].kazanc  += b.kazanc  || 0;
+    }
+  }
+  // net/kayip hesapla
+  for (const mid of Object.keys(musteriMap)) {
+    const ms = musteriMap[mid];
+    // Ham oyun sonucu — discount ETKİSİZ
+    ms.gercekNet   = ms.kazanc - ms.oynanan;
+    ms.gercekKayip = Math.max(0, -ms.gercekNet);
+    for (const g of Object.values(ms.gunler)) {
+      g.gercekNet = (g.kazanc || 0) - (g.oynanan || 0);
+      g.kayip     = Math.max(0, -g.gercekNet);
+    }
+  }
+
+  if (Object.keys(musteriMap).length === 0) {
+    document.getElementById('rapor-tablo').innerHTML = '<div class="empty-state"><i class="fas fa-calendar-times"></i>Bu ay için kayıt bulunamadı</div>';
+    return;
+  }
+
+  const satirlar = Object.entries(musteriMap).map(([mId, ms]) => {
+    const m = data.musteriler.find(x => x.id === mId);
+    // Hakedis bazı = müşterinin kendi parasından aylık net kayıp
+    const h = hesaplaHakedis(ms.gercekKayip);
+    const kalan = Math.max(0, h.tutar - ms.discount);
+    // Gün detay satırları
+    const gunSatirlari = Object.entries(ms.gunler).sort((a,b) => b[0].localeCompare(a[0])).map(([tarih, g]) => {
+      const tarihStr = new Date(tarih + 'T12:00:00').toLocaleDateString('tr-TR', { day:'2-digit', month:'2-digit', weekday:'short' });
+      return `<tr style="background:#f8faff; font-size:12px;">
+        <td style="padding:6px 14px; color:var(--text-muted);">&nbsp;&nbsp;↳ ${tarihStr}</td>
+        <td style="padding:6px 14px;">${fmt(g.oynanan)}</td>
+        <td style="padding:6px 14px; color:${g.gercekNet>=0?'var(--green)':'var(--red)'}; font-weight:600;">${g.gercekNet>=0?'+':''}${fmt(g.gercekNet)}</td>
+        <td style="padding:6px 14px; color:var(--red);">${g.kayip > 0 ? fmt(g.kayip) : '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="padding:6px 14px; color:var(--yellow);">${g.verilen > 0 ? fmt(g.verilen) : '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td colspan="3" style="padding:6px 14px;"></td>
+      </tr>`;
+    }).join('');
+    return { mId, adSoyad: m ? m.adSoyad : 'Bilinmiyor', ms, h, kalan, gunSatirlari };
+  }).sort((a,b) => b.ms.oynanan - a.ms.oynanan);
+
+  document.getElementById('rapor-tablo').innerHTML = `
+    <table class="table-s">
+      <thead><tr>
+        <th>Müşteri</th>
+        <th>Bu Ay Oynanan</th>
+        <th>Net Sonuç</th>
+        <th>Toplam Kayıp</th>
+        <th>Verilen Discount</th>
+        <th>Hakediş</th>
+        <th>Kalan</th>
+      </tr></thead>
+      <tbody>${satirlar.map(s => `
+        <tr style="cursor:pointer; font-weight:600;" onclick="const nx=this.nextElementSibling; nx.style.display=nx.style.display==='none'?'':'none'">
+          <td>${s.adSoyad} <i class="fas fa-caret-down" style="font-size:10px;color:var(--text-muted);margin-left:4px;"></i></td>
+          <td class="text-blue">${fmt(s.ms.oynanan)}</td>
+          <td class="${s.ms.gercekNet >= 0 ? 'text-green' : 'text-red'} fw-bold">${s.ms.gercekNet >= 0 ? '+' : ''}${fmt(s.ms.gercekNet)}</td>
+          <td class="text-red">${s.ms.gercekKayip > 0 ? fmt(s.ms.gercekKayip) : '<span style="color:var(--green);font-weight:700;">KARDA</span>'}</td>
+          <td class="text-yellow">${s.ms.discount > 0 ? fmt(s.ms.discount) : '—'}</td>
+          <td class="fw-bold" style="color:var(--accent);">${fmt(s.h.tutar)}</td>
+          <td class="fw-bold" style="color:${s.kalan>0?'var(--accent)':'var(--text-muted)'};">${fmt(s.kalan)}</td>
+        </tr>
+        <tr style="display:none;"><td colspan="7" style="padding:0;">
+          <table style="width:100%; font-size:12px;">
+            <thead><tr style="background:#eef2fb;">
+              <th style="padding:5px 14px; color:var(--text-muted); font-weight:600;">Tarih</th>
+              <th style="padding:5px 14px; color:var(--text-muted); font-weight:600;">Oynanan</th>
+              <th style="padding:5px 14px; color:var(--text-muted); font-weight:600;">Net Sonuç</th>
+              <th style="padding:5px 14px; color:var(--text-muted); font-weight:600;">Kayıp</th>
+              <th style="padding:5px 14px; color:var(--text-muted); font-weight:600;">Verilen</th>
+              <th colspan="3"></th>
+            </tr></thead>
+            <tbody>${s.gunSatirlari}</tbody>
+          </table>
+        </td></tr>
+      `).join('')}</tbody>
+    </table>
+  `;
+}
+
+// ===================== TÜM GEÇMİŞ =====================
+function renderGecmis() {
+  const data = getData();
+  const filterSel = document.getElementById('gecmis-musteri-filter');
+  const mevcut = filterSel.value;
+  filterSel.innerHTML = '<option value="">Tüm Müşteriler</option>' +
+    getSubeMusterileri(data).map(m => `<option value="${m.id}" ${m.id===mevcut?'selected':''}>${m.adSoyad}</option>`).join('');
+  gecmisGoster();
+}
+
+function gecmisGoster() {
+  const data = getData();
+  const filterId   = document.getElementById('gecmis-musteri-filter').value;
+  const filtreSube = (document.getElementById('gecmis-sube-filter') || {}).value || '';
+  let oturumlar = [...data.oturumlar];
+  // Şube izolasyonu: YÖNETİM dışı şubeler yalnızca kendi oturumlarını görür
+  if (aktifSube !== 'YÖNETİM') oturumlar = oturumlar.filter(o => o.sube === aktifSube);
+  if (filterId)   oturumlar = oturumlar.filter(o => o.musteriId === filterId);
+  if (filtreSube) oturumlar = oturumlar.filter(o => o.sube === filtreSube);
+  oturumlar.sort((a,b) => (b.tarih||'').localeCompare(a.tarih||''));
+
+  if (oturumlar.length === 0) {
+    document.getElementById('gecmis-tablo').innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i>Kayıt bulunamadı</div>';
+    return;
+  }
+
+  document.getElementById('gecmis-tablo').innerHTML = `
+    <table class="table-s">
+      <thead><tr><th>Tarih</th><th>Müşteri</th><th>Şube</th><th>Oyun</th><th>Oynanan</th><th>Net Sonuç</th><th>Verilen Disc.</th><th>Not</th></tr></thead>
+      <tbody>${oturumlar.map(o => {
+        const m = data.musteriler.find(x => x.id === o.musteriId);
+        const net = o.toplamNet || 0;
+        return `<tr class="session-row" onclick="openOturumModal('${o.id}')">
+          <td>${fmtDate(o.tarih)}</td>
+          <td style="font-weight:600;">${m ? m.adSoyad : 'Bilinmiyor'}</td>
+          <td><span style="font-size:11px;background:#e0e7ff;color:#3730a3;border-radius:4px;padding:2px 7px;font-weight:600;">${o.sube || '—'}</span></td>
+          <td>${(o.bahisler||[]).length}</td>
+          <td>${fmt(o.toplamOynanan)}</td>
+          <td class="${net >= 0 ? 'text-green' : 'text-red'} fw-bold">${fmt(net)}</td>
+          <td class="text-yellow">${fmt(o.verilenDiscount)}</td>
+          <td class="text-muted-s">${o.not || '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+// ===================== AYARLAR =====================
+let kuralTemp = []; // geçici düzenleme listesi
+
+function renderAyarlar() {
+  if (aktifSube !== 'YÖNETİM') {
+    showPage('dashboard');
+    toast('Ayarlar sadece YÖNETİM tarafından değiştirilebilir!', 'error');
+    return;
+  }
+  const { kurallar } = getAyarlar();
+  kuralTemp = kurallar.map(k => ({ ...k }));
+  kuralListesiGoster();
+}
+
+function kuralListesiGoster() {
+  const el = document.getElementById('kural-listesi');
+  if (!el) return;
+  if (kuralTemp.length === 0) {
+    el.innerHTML = '<div class="text-muted-s" style="padding: 12px 0;">Henüz kural yok. Aşağıdan ekleyin.</div>';
+    return;
+  }
+  el.innerHTML = kuralTemp.map((k, i) => `
+    <div class="kural-row">
+      <input type="number" class="form-control-s" value="${k.minKayip}" placeholder="Min kayıp"
+        style="text-align:right;" oninput="kuralGuncelle(${i},'minKayip',this.value)">
+      <input type="number" class="form-control-s" value="${k.maxKayip || ''}" placeholder="Sınırsız"
+        style="text-align:right;" oninput="kuralGuncelle(${i},'maxKayip',this.value)">
+      <div style="position:relative;">
+        <input type="number" class="form-control-s" value="${k.oran}" placeholder="%" min="0" max="100"
+          style="text-align:right; padding-right:28px;" oninput="kuralGuncelle(${i},'oran',this.value)">
+        <span style="position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:13px; pointer-events:none;">%</span>
+      </div>
+      <button class="delete-row-btn" style="width:40px; height:36px;" onclick="kuralSil(${i})" title="Sil">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  `).join('') + `
+    <div style="font-size:11px; color:var(--text-muted); margin-top:8px; padding: 8px 10px; background:rgba(139,144,176,.06); border-radius:6px;">
+      ${kuralTemp.map((k, i) => {
+        const max = k.maxKayip ? fmtNum(k.maxKayip) + ' TL' : 'üzeri';
+        return `<span style="margin-right:14px;">${fmtNum(k.minKayip)} – ${max} TL → <strong style="color:var(--yellow)">%${k.oran}</strong></span>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function kuralGuncelle(i, alan, deger) {
+  if (alan === 'maxKayip') {
+    kuralTemp[i][alan] = deger === '' ? null : parseFloat(deger) || null;
+  } else {
+    kuralTemp[i][alan] = parseFloat(deger) || 0;
+  }
+  // Sadece önizlemeyi güncelle (input'ları yeniden render etme, odak kaymasın)
+  const previewEl = document.querySelector('#kural-listesi > div:last-child');
+  if (previewEl && previewEl.querySelector('strong')) {
+    previewEl.innerHTML = kuralTemp.map((k) => {
+      const max = k.maxKayip ? fmtNum(k.maxKayip) + ' TL' : 'üzeri';
+      return `<span style="margin-right:14px;">${fmtNum(k.minKayip)} – ${max} TL → <strong style="color:var(--yellow)">%${k.oran}</strong></span>`;
+    }).join('');
+  }
+}
+
+function kuralEkle() {
+  // Mevcut en yüksek maxKayip'i bulup yeni kuralın başlangıcı yap
+  let yeniMin = 0;
+  for (const k of kuralTemp) {
+    if (k.maxKayip && k.maxKayip > yeniMin) yeniMin = k.maxKayip;
+    if (!k.maxKayip) yeniMin = Math.max(yeniMin, k.minKayip);
+  }
+  kuralTemp.push({ minKayip: yeniMin || 25000, maxKayip: null, oran: 10 });
+  kuralListesiGoster();
+}
+
+function kuralSil(i) {
+  kuralTemp.splice(i, 1);
+  kuralListesiGoster();
+}
+
+function yonetimPinDegistir() {
+  const yeni = document.getElementById('yonetim-pin-input').value.trim();
+  if (!yeni || yeni.length < 4) { toast('Şifre en az 4 karakter olmalı!', 'error'); return; }
+  const ayarlar = getAyarlar();
+  ayarlar.yonetimPin = yeni;
+  saveAyarlar(ayarlar);
+  document.getElementById('yonetim-pin-input').value = '';
+  toast('YÖNETİM şifresi güncellendi ✓');
+}
+
+function ayarlariKaydet() {
+  if (kuralTemp.length === 0) {
+    toast('En az bir kural olmalı!', 'error'); return;
+  }
+  for (const k of kuralTemp) {
+    if (k.minKayip < 0 || k.oran < 0 || k.oran > 100) {
+      toast('Geçersiz değer var, kontrol edin!', 'error'); return;
+    }
+  }
+  // minKayip'e göre sırala
+  kuralTemp.sort((a, b) => a.minKayip - b.minKayip);
+  saveAyarlar({ ...appAyarlar, kurallar: kuralTemp });
+  kuralListesiGoster();
+  toast('Discount kuralları kaydedildi ✓');
+}
+
+function ayarlariSifirla() {
+  if (!confirm('Kurallar varsayılana sıfırlansın mı?')) return;
+  kuralTemp = VARSAYILAN_KURALLAR.map(k => ({ ...k }));
+  kuralListesiGoster();
+  toast('Varsayılan kurallara döndürüldü');
+}
+
+// ===================== INIT =====================
+window.addEventListener('DOMContentLoaded', () => {
+  // ESC closes modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+    }
+  });
+  // Click outside modal
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) overlay.classList.remove('show');
+    });
+  });
+  // Firebase başlat — hazır olunca renderDashboard() çağrılır
+  initFirebase();
+
+  // Sayfa kapatılınca Firestore listener'ları temizle
+  window.addEventListener('beforeunload', () => {
+    if (_unsubMain)    _unsubMain();
+    if (_unsubAyarlar) _unsubAyarlar();
+    if (_unsubLive)    _unsubLive();
+  });
+});
+</script>
+</body>
+</html>
