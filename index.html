@@ -2592,7 +2592,13 @@ function oturumDiscountGuncelle() {
   const o = data.oturumlar.find(x => x.id === currentOturumId);
   if (!o) return;
   o.verilenDiscount = yeniVal;
-  saveData(data);
+  appData = data;
+  if (db) {
+    _isSaving = true;
+    db.collection('data').doc('main').set(data)
+      .then(() => { _isSaving = false; })
+      .catch(e => { _isSaving = false; toast('Kayıt başarısız!', 'error'); });
+  }
   closeOturumModal();
   toast('Discount güncellendi ✓');
   if (currentPage === 'detay') renderDetay(currentMusteriId);
@@ -2610,7 +2616,13 @@ function oturumSil() {
   }
   if (!confirm('Bu oturumu silmek istediğinize emin misiniz?')) return;
   data.oturumlar = data.oturumlar.filter(o => o.id !== currentOturumId);
-  saveData(data);
+  appData = data;
+  if (db) {
+    _isSaving = true;
+    db.collection('data').doc('main').set(data)
+      .then(() => { _isSaving = false; })
+      .catch(e => { _isSaving = false; toast('Kayıt başarısız!', 'error'); });
+  }
   closeOturumModal();
   toast('Oturum silindi');
   if (currentPage === 'detay') renderDetay(currentMusteriId);
