@@ -1035,8 +1035,9 @@ function subeSifreKontrol() {
   const pinler = ayarlar.subePinleri || {};
   const dogru = pinler[bekleyenSube] || '1234';
   if (girilen === dogru) {
+    const sube = bekleyenSube; // kapat() null yapmadan önce sakla
     subeSifreKapat();
-    subeSeç(bekleyenSube);
+    subeSeç(sube);
   } else {
     document.getElementById('sube-sifre-hata').style.display = 'block';
     document.getElementById('sube-sifre-input').value = '';
