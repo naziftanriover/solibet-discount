@@ -1486,7 +1486,8 @@ function renderDashboard() {
 // Şubeye göre müşteri filtrele (YÖNETİM hepsini görür)
 function getSubeMusterileri(data) {
   if (aktifSube === 'YÖNETİM') return data.musteriler;
-  return data.musteriler.filter(m => m.sube === aktifSube);
+  // Şubesi olmayan müşteriler tüm şubelere görünür (eski kayıtlar için)
+  return data.musteriler.filter(m => !m.sube || m.sube === aktifSube);
 }
 
 // ===================== MÜŞTERİLER =====================
