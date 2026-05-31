@@ -746,6 +746,33 @@
     </div>
 
     <div class="ayar-card">
+      <h4><i class="fas fa-store me-2 text-blue"></i>Şube Giriş Şifreleri</h4>
+      <p style="margin-bottom:16px;">Her şube için ayrı giriş şifresi belirleyin. Varsayılan şifre: <strong>1234</strong></p>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="min-width:90px;font-weight:700;font-size:13px;color:var(--text);">ALSANCAK</label>
+          <input type="password" id="sube-pin-ALSANCAK" class="form-control-s" placeholder="Yeni şifre (min. 4 karakter)" style="flex:1;">
+          <button class="btn-s btn-primary-s" onclick="subePinDegistir('ALSANCAK')" style="white-space:nowrap;"><i class="fas fa-key"></i> Kaydet</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="min-width:90px;font-weight:700;font-size:13px;color:var(--text);">ZEYTİNLİK</label>
+          <input type="password" id="sube-pin-ZEYTİNLİK" class="form-control-s" placeholder="Yeni şifre (min. 4 karakter)" style="flex:1;">
+          <button class="btn-s btn-primary-s" onclick="subePinDegistir('ZEYTİNLİK')" style="white-space:nowrap;"><i class="fas fa-key"></i> Kaydet</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="min-width:90px;font-weight:700;font-size:13px;color:var(--text);">KAŞGAR</label>
+          <input type="password" id="sube-pin-KAŞGAR" class="form-control-s" placeholder="Yeni şifre (min. 4 karakter)" style="flex:1;">
+          <button class="btn-s btn-primary-s" onclick="subePinDegistir('KAŞGAR')" style="white-space:nowrap;"><i class="fas fa-key"></i> Kaydet</button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="min-width:90px;font-weight:700;font-size:13px;color:var(--text);">İTİMAT</label>
+          <input type="password" id="sube-pin-İTİMAT" class="form-control-s" placeholder="Yeni şifre (min. 4 karakter)" style="flex:1;">
+          <button class="btn-s btn-primary-s" onclick="subePinDegistir('İTİMAT')" style="white-space:nowrap;"><i class="fas fa-key"></i> Kaydet</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ayar-card">
       <h4><i class="fas fa-info-circle me-2 text-blue"></i>Kural Nasıl Çalışır?</h4>
       <p style="margin-bottom:0;">Müşterinin toplam birikimli kaybı hesaplanır. Bu kayıp hangi aralığa giriyorsa o aralığın discount yüzdesi uygulanır.<br><br>
       <strong>Örnek:</strong> 25.000–50.000 TL = %10 kuralında, müşteri 40.000 TL kaybettiyse hakediş = 40.000 × %10 = 4.000 TL olur.<br><br>
@@ -775,20 +802,46 @@
     <h4 style="margin-bottom:8px;font-weight:800;color:#1e2642;font-size:20px;">Şube Seçin</h4>
     <p style="color:#64748b;font-size:14px;margin-bottom:26px;">Bu cihazın bağlı olduğu şubeyi seçin.<br>Seçim bu cihazda hatırlanır.</p>
     <div style="display:flex;flex-direction:column;gap:10px;">
-      <button onclick="subeSeç('ALSANCAK')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-store" style="font-size:16px;"></i> ALSANCAK
+      <button onclick="subeSifreGoster('ALSANCAK')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> ALSANCAK <i class="fas fa-lock" style="font-size:11px;opacity:.5;margin-left:auto;"></i>
       </button>
-      <button onclick="subeSeç('ZEYTİNLİK')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-store" style="font-size:16px;"></i> ZEYTİNLİK
+      <button onclick="subeSifreGoster('ZEYTİNLİK')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> ZEYTİNLİK <i class="fas fa-lock" style="font-size:11px;opacity:.5;margin-left:auto;"></i>
       </button>
-      <button onclick="subeSeç('KAŞGAR')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-store" style="font-size:16px;"></i> KAŞGAR
+      <button onclick="subeSifreGoster('KAŞGAR')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> KAŞGAR <i class="fas fa-lock" style="font-size:11px;opacity:.5;margin-left:auto;"></i>
       </button>
-      <button onclick="subeSeç('İTİMAT')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
-        <i class="fas fa-store" style="font-size:16px;"></i> İTİMAT
+      <button onclick="subeSifreGoster('İTİMAT')" style="background:#eff6ff;border:2px solid #bfdbfe;color:#1d4ed8;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
+        <i class="fas fa-store" style="font-size:16px;"></i> İTİMAT <i class="fas fa-lock" style="font-size:11px;opacity:.5;margin-left:auto;"></i>
       </button>
       <button onclick="yonetimSifreGoster()" style="background:#1a2642;border:2px solid #1a2642;color:#fff;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:10px;">
         <i class="fas fa-crown" style="font-size:16px;color:#fbbf24;"></i> YÖNETİM <span style="font-size:12px;opacity:.6;font-weight:500;"><i class="fas fa-lock" style="font-size:11px;"></i> Şifreli</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ŞUBE ŞİFRE MODAL -->
+<div id="sube-sifre-modal" style="display:none;position:fixed;inset:0;background:rgba(26,38,66,.97);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:18px;padding:36px 40px;max-width:360px;width:90%;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.4);">
+    <div style="width:58px;height:58px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:24px;">
+      <i class="fas fa-store" style="color:#fff;"></i>
+    </div>
+    <h4 id="sube-sifre-baslik" style="margin-bottom:6px;font-weight:800;color:#1e2642;font-size:18px;">Şube Girişi</h4>
+    <p style="color:#64748b;font-size:13px;margin-bottom:22px;">Şifreyi girin</p>
+    <input type="password" id="sube-sifre-input" class="form-control-s" placeholder="••••"
+      style="text-align:center;font-size:22px;letter-spacing:6px;margin-bottom:10px;"
+      onkeydown="if(event.key==='Enter') subeSifreKontrol()"
+      oninput="document.getElementById('sube-sifre-hata').style.display='none'">
+    <div id="sube-sifre-hata" style="display:none;color:#dc2626;font-size:12px;font-weight:600;margin-bottom:10px;">
+      <i class="fas fa-times-circle"></i> Hatalı şifre!
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button onclick="subeSifreKapat()" style="flex:1;background:#f1f5f9;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;color:#64748b;">
+        İptal
+      </button>
+      <button onclick="subeSifreKontrol()" style="flex:1;background:#2563eb;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;color:#fff;">
+        <i class="fas fa-unlock"></i> Giriş
       </button>
     </div>
   </div>
@@ -953,6 +1006,56 @@ async function subeSeç(sube) {
 function subeSeciciAc() {
   const overlay = document.getElementById('sube-secici');
   if (overlay) overlay.style.display = 'flex';
+}
+
+// ---- Şube Şifre Koruması ----
+let bekleyenSube = null;
+
+function subeSifreGoster(sube) {
+  bekleyenSube = sube;
+  const modal = document.getElementById('sube-sifre-modal');
+  if (!modal) return;
+  document.getElementById('sube-sifre-baslik').textContent = sube + ' Girişi';
+  document.getElementById('sube-sifre-input').value = '';
+  document.getElementById('sube-sifre-hata').style.display = 'none';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('sube-sifre-input').focus(), 100);
+}
+
+function subeSifreKapat() {
+  const modal = document.getElementById('sube-sifre-modal');
+  if (modal) modal.style.display = 'none';
+  bekleyenSube = null;
+}
+
+function subeSifreKontrol() {
+  if (!bekleyenSube) return;
+  const girilen = document.getElementById('sube-sifre-input').value;
+  const ayarlar = getAyarlar();
+  const pinler = ayarlar.subePinleri || {};
+  const dogru = pinler[bekleyenSube] || '1234';
+  if (girilen === dogru) {
+    subeSifreKapat();
+    subeSeç(bekleyenSube);
+  } else {
+    document.getElementById('sube-sifre-hata').style.display = 'block';
+    document.getElementById('sube-sifre-input').value = '';
+    setTimeout(() => document.getElementById('sube-sifre-input').focus(), 50);
+  }
+}
+
+function subePinDegistir(sube) {
+  const inputId = 'sube-pin-' + sube;
+  const el = document.getElementById(inputId);
+  if (!el) return;
+  const yeni = el.value.trim();
+  if (!yeni || yeni.length < 4) { toast('Şifre en az 4 karakter olmalı!', 'error'); return; }
+  const ayarlar = getAyarlar();
+  if (!ayarlar.subePinleri) ayarlar.subePinleri = {};
+  ayarlar.subePinleri[sube] = yeni;
+  saveAyarlar(ayarlar);
+  el.value = '';
+  toast(sube + ' şifresi güncellendi ✓');
 }
 
 // ---- YÖNETİM Şifre Koruması ----
@@ -2449,7 +2552,18 @@ function openOturumModal(oturumId) {
     <div class="grid-3 mb-3">
       <div class="card-s" style="padding:12px;"><label>Toplam Oynanan</label><div class="fw-bold">${fmt(o.toplamOynanan)}</div></div>
       <div class="card-s" style="padding:12px;"><label>Net Sonuç</label><div class="fw-bold ${net >= 0 ? 'text-green' : 'text-red'}">${fmt(net)}</div></div>
-      <div class="card-s" style="padding:12px;"><label>Verilen Discount</label><div class="fw-bold text-yellow">${fmt(o.verilenDiscount)}</div></div>
+      <div class="card-s" style="padding:12px;"><label>Verilen Discount</label>
+        ${aktifSube === 'YÖNETİM'
+          ? `<div style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+               <input type="number" id="oturum-discount-input" value="${o.verilenDiscount||0}"
+                 style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;">
+               <button onclick="oturumDiscountGuncelle()" style="background:#059669;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                 <i class="fas fa-save"></i> Kaydet
+               </button>
+             </div>`
+          : `<div class="fw-bold text-yellow">${fmt(o.verilenDiscount)}</div>`
+        }
+      </div>
     </div>
     ${o.not ? `<div class="text-muted-s mb-3"><i class="fas fa-sticky-note me-1"></i>${o.not}</div>` : ''}
     ${bahisHtml}
@@ -2460,6 +2574,23 @@ function openOturumModal(oturumId) {
 function closeOturumModal() {
   document.getElementById('oturum-modal').classList.remove('show');
   currentOturumId = null;
+}
+
+function oturumDiscountGuncelle() {
+  if (!currentOturumId || aktifSube !== 'YÖNETİM') return;
+  const inputEl = document.getElementById('oturum-discount-input');
+  if (!inputEl) return;
+  const yeniVal = parseFloat(inputEl.value) || 0;
+  const data = getData();
+  const o = data.oturumlar.find(x => x.id === currentOturumId);
+  if (!o) return;
+  o.verilenDiscount = yeniVal;
+  saveData(data);
+  closeOturumModal();
+  toast('Discount güncellendi ✓');
+  if (currentPage === 'detay') renderDetay(currentMusteriId);
+  else if (currentPage === 'gecmis') renderGecmis();
+  else if (currentPage === 'dashboard') renderDashboard();
 }
 
 function oturumSil() {
