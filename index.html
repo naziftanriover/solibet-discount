@@ -508,6 +508,14 @@
       <div id="bugun-net-ozet" style="margin-bottom:10px;"></div>
       <div id="bugun-net-durumu"></div>
     </div>
+    <!-- Bugünün Durumu Paneli — ÜSTTE -->
+    <div class="card-s mb-4" id="bugun-durumu-kart">
+      <div class="flex-between mb-3">
+        <strong style="font-size:14px;"><i class="fas fa-signal me-2 text-green"></i>Bugünün Durumu</strong>
+        <span class="text-muted-s" style="font-size:12px;" id="bugun-tarih-mini"></span>
+      </div>
+      <div id="bugun-durumu-panel"></div>
+    </div>
     <div class="grid-4 mb-4" id="dashboard-stats"></div>
     <div class="grid-2">
       <div class="card-s">
@@ -524,14 +532,6 @@
         </div>
         <div id="discount-durumu"></div>
       </div>
-    </div>
-    <!-- Bugünün Durumu Paneli -->
-    <div class="card-s mt-0" id="bugun-durumu-kart">
-      <div class="flex-between mb-3">
-        <strong style="font-size:14px;"><i class="fas fa-signal me-2 text-green"></i>Bugünün Durumu</strong>
-        <span class="text-muted-s" style="font-size:12px;" id="bugun-tarih-mini"></span>
-      </div>
-      <div id="bugun-durumu-panel"></div>
     </div>
     <!-- Canlı Girişler Paneli -->
     <div class="card-s" id="canli-panel" style="display:none; border-left: 4px solid #22c55e;">
@@ -1685,63 +1685,107 @@ function renderBugunDurumu() {
   const tarihEl = document.getElementById('bugun-tarih-mini');
   if (tarihEl) tarihEl.textContent = new Date().toLocaleDateString('tr-TR', { day:'numeric', month:'long' });
   if (!panel) return;
+
   const data = getData();
   const bugun = new Date().toISOString().split('T')[0];
   const subeler = ['ALSANCAK','ZEYTİNLİK','KAŞGAR','İTİMAT'];
   const bugunOturumlar = data.oturumlar.filter(o => o.tarih === bugun);
-  let html = '';
-  let herhangiVarMi = false;
-  for (const sube of subeler) {
-    const subeOturumlar = bugunOturumlar.filter(o => o.sube === sube);
-    if (subeOturumlar.length === 0) continue;
-    const musteriMap = {};
-    for (const o of subeOturumlar) {
-      if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { net: 0, discount: 0 };
-      for (const b of (o.bahisler || [])) {
-        musteriMap[o.musteriId].net += (b.kazanc || 0) - (b.oynanan || 0);
+
+  if (bugunOturumlar.length === 0) {
+    panel.innerHTML = '<div style="text-align:center;padding:18px 0;color:var(--text-muted);font-size:13px;"><i class="fas fa-moon" style="opacity:.3;display:block;font-size:28px;margin-bottom:8px;"></i>Bugün henüz giriş yok</div>';
+    return;
+  }
+
+  function buildRows(subeList) {
+    const rows = [];
+    for (const sube of subeList) {
+      const subeOturumlar = bugunOturumlar.filter(o => o.sube === sube);
+      if (!subeOturumlar.length) continue;
+      const musteriMap = {};
+      for (const o of subeOturumlar) {
+        if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { net: 0, discount: 0 };
+        for (const b of (o.bahisler || [])) {
+          musteriMap[o.musteriId].net += (b.kazanc || 0) - (b.oynanan || 0);
+        }
+        musteriMap[o.musteriId].discount += o.verilenDiscount || 0;
       }
-      musteriMap[o.musteriId].discount += o.verilenDiscount || 0;
-    }
-    const karda = [], discountAlan = [];
-    for (const [mId, vals] of Object.entries(musteriMap)) {
-      const m = data.musteriler.find(x => x.id === mId);
-      const ad = m ? m.adSoyad : 'Bilinmiyor';
-      if (vals.net > 0) karda.push({ ad, net: vals.net, mId });
-      if (vals.discount > 0) {
-        const t = getMusteriToplamlar(mId, sube);
-        const h = hesaplaHakedis(t.toplamKayip);
-        discountAlan.push({ ad, discount: vals.discount, hakedis: h.tutar, mId });
+      for (const [mId, vals] of Object.entries(musteriMap)) {
+        const m = data.musteriler.find(x => x.id === mId);
+        const tumOturumlar = data.oturumlar.filter(o => o.musteriId === mId && o.sube === sube);
+        let cumNet = 0, cumVerilen = 0;
+        for (const o of tumOturumlar) {
+          cumVerilen += o.verilenDiscount || 0;
+          for (const b of (o.bahisler || [])) cumNet += (b.kazanc||0) - (b.oynanan||0);
+        }
+        const cumKayip = Math.max(0, -cumNet);
+        const h = hesaplaHakedis(cumKayip);
+        rows.push({
+          ad: m ? m.adSoyad : 'Bilinmiyor',
+          mId, sube,
+          net: vals.net,
+          hakedis: h.tutar,
+          cumVerilen,
+          discount: vals.discount
+        });
       }
     }
-    if (karda.length === 0 && discountAlan.length === 0) continue;
-    herhangiVarMi = true;
-    html += `<div style="margin-bottom:16px;">
-      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1.5px solid var(--border);">
-        <i class="fas fa-store me-1" style="opacity:.5;"></i>${sube}
-      </div>`;
-    if (karda.length > 0) {
-      html += karda.map(x => `
-        <div class="flex-between" style="padding:5px 0;font-size:13px;">
-          <span><span style="margin-right:5px;">🟢</span><span style="font-weight:600;">${x.ad}</span></span>
-          <span style="font-weight:700;color:var(--green);">+${fmt(x.net)}</span>
-        </div>`).join('');
-    }
-    if (discountAlan.length > 0) {
-      html += discountAlan.map(x => `
-        <div class="flex-between" style="padding:5px 0;font-size:13px;align-items:flex-start;">
-          <span><span style="margin-right:5px;">🎁</span><span style="font-weight:600;">${x.ad}</span></span>
-          <div style="text-align:right;line-height:1.3;">
-            <span style="font-weight:700;color:var(--yellow);">${fmt(x.discount)} verildi</span>
-            <div class="text-muted-s" style="font-size:11px;">Hakediş: ${fmt(x.hakedis)}</div>
+    return rows;
+  }
+
+  function renderRows(rows) {
+    if (!rows.length) return '<div style="color:var(--text-muted);font-size:12px;padding:14px 0;text-align:center;opacity:.7;">Bugün giriş yok</div>';
+    return rows.map(r => {
+      const isKarda = r.net > 0;
+      const netColor = isKarda ? 'var(--green)' : 'var(--red)';
+      const netStr = (isKarda ? '+' : '') + fmt(r.net);
+      const subeBadge = `<span style="font-size:10px;background:rgba(99,102,241,.13);color:#4f46e5;border-radius:3px;padding:1px 5px;font-weight:700;letter-spacing:.3px;">${r.sube}</span>`;
+      const altBilgi = [];
+      if (r.hakedis > 0) altBilgi.push(`<span>Hak: <strong>${fmt(r.hakedis)}</strong></span>`);
+      if (r.discount > 0) altBilgi.push(`<span style="color:#f59e0b;">Verilen: <strong>${fmt(r.discount)}</strong></span>`);
+      return `
+        <div onclick="showPage('giris','${r.mId}')" style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;color:${netColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.ad}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+              ${subeBadge}
+              ${altBilgi.join('<span style="opacity:.4;">·</span>')}
+            </div>
           </div>
-        </div>`).join('');
-    }
-    html += '</div>';
+          <div style="font-weight:800;font-size:14px;color:${netColor};flex-shrink:0;">${netStr}</div>
+        </div>`;
+    }).join('');
   }
-  if (!herhangiVarMi) {
-    html = '<div style="text-align:center;padding:18px 0;color:var(--text-muted);font-size:13px;"><i class="fas fa-moon" style="opacity:.3;display:block;font-size:28px;margin-bottom:8px;"></i>Bugün karda veya discountlu müşteri yok</div>';
+
+  const kendiSube = aktifSube !== 'YÖNETİM' ? aktifSube : null;
+  let leftLabel, rightLabel, leftRows, rightRows;
+
+  if (kendiSube) {
+    leftLabel  = `<i class="fas fa-store me-1"></i>${kendiSube} <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;margin-left:4px;">Kendi Şuben</span>`;
+    rightLabel = `<i class="fas fa-store me-1"></i>Diğer Şubeler`;
+    leftRows   = buildRows([kendiSube]);
+    rightRows  = buildRows(subeler.filter(s => s !== kendiSube));
+  } else {
+    leftLabel  = `<i class="fas fa-store me-1"></i>ALSANCAK · ZEYTİNLİK`;
+    rightLabel = `<i class="fas fa-store me-1"></i>KAŞGAR · İTİMAT`;
+    leftRows   = buildRows(['ALSANCAK','ZEYTİNLİK']);
+    rightRows  = buildRows(['KAŞGAR','İTİMAT']);
   }
-  panel.innerHTML = html;
+
+  const borderAccent = 'border-bottom:2px solid var(--accent);';
+  const borderGray   = 'border-bottom:2px solid var(--border);';
+  const labelStyle   = 'font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;';
+
+  panel.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div style="${labelStyle}${borderAccent}">${leftLabel}</div>
+        ${renderRows(leftRows)}
+      </div>
+      <div>
+        <div style="${labelStyle}${borderGray}">${rightLabel}</div>
+        ${renderRows(rightRows)}
+      </div>
+    </div>`;
 }
 
 // Şubeye göre müşteri filtrele (YÖNETİM hepsini görür)
@@ -2863,8 +2907,9 @@ function oturumDiscountGuncelle() {
 
 function oturumDuzenleAc() {
   if (!currentOturumId) return;
+  const oturumId = currentOturumId; // closeOturumModal() null yapmadan önce sakla
   closeOturumModal();
-  openOturumDuzenleModal(currentOturumId);
+  openOturumDuzenleModal(oturumId);
 }
 
 // ===================== OTURUM DÜZENLEME =====================
