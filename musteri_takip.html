@@ -1522,6 +1522,20 @@ function renderDashboard() {
   renderBugunDurumu();
 }
 
+// ===================== BUGÜNÜN DURUMU — CLICK HELPER =====================
+function bugunMusteriTikla(mId) {
+  if (aktifSube === 'YÖNETİM') {
+    // YÖNETİM için gecmis sayfasına git, müşteriyi filtrele
+    showPage('gecmis');
+    setTimeout(() => {
+      const sel = document.getElementById('gecmis-musteri-filter');
+      if (sel) { sel.value = mId; gecmisGoster(); }
+    }, 60);
+  } else {
+    showPage('giris', mId);
+  }
+}
+
 // ===================== BUGÜNÜN DURUMU PANELİ =====================
 function renderBugunDurumu() {
   const panel = document.getElementById('bugun-durumu-panel');
@@ -1539,24 +1553,24 @@ function renderBugunDurumu() {
     return;
   }
 
-  // Bir şube listesindeki tüm müşteri satırlarını hesapla
+  const kendiSube = aktifSube !== 'YÖNETİM' ? aktifSube : null;
+
   function buildRows(subeList) {
     const rows = [];
     for (const sube of subeList) {
       const subeOturumlar = bugunOturumlar.filter(o => o.sube === sube);
       if (!subeOturumlar.length) continue;
-      // Müşteri bazında bugünkü net + discount
       const musteriMap = {};
       for (const o of subeOturumlar) {
-        if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { net: 0, discount: 0 };
+        if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { net: 0, bugunDiscount: 0 };
         for (const b of (o.bahisler || [])) {
           musteriMap[o.musteriId].net += (b.kazanc || 0) - (b.oynanan || 0);
         }
-        musteriMap[o.musteriId].discount += o.verilenDiscount || 0;
+        musteriMap[o.musteriId].bugunDiscount += o.verilenDiscount || 0;
       }
       for (const [mId, vals] of Object.entries(musteriMap)) {
         const m = data.musteriler.find(x => x.id === mId);
-        // Kümülatif hakediş — bu şubenin tüm oturumlarına bak (aktifSube filtresi bypass)
+        // Kümülatif hakediş hesabı — aktifSube filtresi bypass edildi
         const tumOturumlar = data.oturumlar.filter(o => o.musteriId === mId && o.sube === sube);
         let cumNet = 0, cumVerilen = 0;
         for (const o of tumOturumlar) {
@@ -1565,73 +1579,71 @@ function renderBugunDurumu() {
         }
         const cumKayip = Math.max(0, -cumNet);
         const h = hesaplaHakedis(cumKayip);
-        rows.push({
-          ad: m ? m.adSoyad : 'Bilinmiyor',
-          mId, sube,
-          net: vals.net,
-          hakedis: h.tutar,
-          cumVerilen,
-          discount: vals.discount
-        });
+        // DÜZELTME: brüt hakedis değil, KALAN hakedis (kazanılan - verilmiş)
+        const kalanHakedis = Math.max(0, h.tutar - cumVerilen);
+        rows.push({ ad: m ? m.adSoyad : 'Bilinmiyor', mId, sube, net: vals.net, kalanHakedis, bugunDiscount: vals.bugunDiscount });
       }
     }
     return rows;
   }
 
-  // Satır HTML'i
-  function renderRows(rows) {
-    if (!rows.length) return '<div style="color:var(--text-muted);font-size:12px;padding:14px 0;text-align:center;opacity:.7;">Bugün giriş yok</div>';
-    return rows.map(r => {
+  // Excel tarzı tablo — sütunlar: Müşteri | Net | Hak.Kalan | Verilen
+  const TH = 'padding:5px 8px;background:rgba(0,0,0,.04);border:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;';
+  const TD = 'padding:6px 8px;border:1px solid var(--border);font-size:12.5px;';
+
+  function renderTable(rows, showSube) {
+    if (!rows.length) return '<div style="color:var(--text-muted);font-size:12px;padding:12px 4px;text-align:center;opacity:.7;">Bugün giriş yok</div>';
+    const thead = `<thead><tr>
+      <th style="${TH}text-align:left;">Müşteri${showSube ? ' / Şube' : ''}</th>
+      <th style="${TH}text-align:right;">Net</th>
+      <th style="${TH}text-align:right;">Hak.Kalan</th>
+      <th style="${TH}text-align:right;">Verilen</th>
+    </tr></thead>`;
+    const tbody = rows.map(r => {
       const isKarda = r.net > 0;
       const netColor = isKarda ? 'var(--green)' : 'var(--red)';
+      const rowBg = isKarda ? 'rgba(34,197,94,.06)' : 'rgba(239,68,68,.06)';
       const netStr = (isKarda ? '+' : '') + fmt(r.net);
-      const subeBadge = `<span style="font-size:10px;background:rgba(99,102,241,.13);color:#4f46e5;border-radius:3px;padding:1px 5px;font-weight:700;letter-spacing:.3px;">${r.sube}</span>`;
-      const altBilgi = [];
-      if (r.hakedis > 0) altBilgi.push(`<span>Hak: <strong>${fmt(r.hakedis)}</strong></span>`);
-      if (r.discount > 0) altBilgi.push(`<span style="color:#f59e0b;">Verilen: <strong>${fmt(r.discount)}</strong></span>`);
-      return `
-        <div onclick="showPage('giris','${r.mId}')" style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);cursor:pointer;gap:8px;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:700;font-size:13px;color:${netColor};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.ad}</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-              ${subeBadge}
-              ${altBilgi.join('<span style="opacity:.4;">·</span>')}
-            </div>
-          </div>
-          <div style="font-weight:800;font-size:14px;color:${netColor};flex-shrink:0;">${netStr}</div>
-        </div>`;
+      const subeLine = showSube ? `<div style="font-size:10px;font-weight:700;color:#4f46e5;margin-top:2px;letter-spacing:.3px;">${r.sube}</div>` : '';
+      const hakCell = r.kalanHakedis > 0
+        ? `<span style="color:#92400e;font-weight:700;">${fmt(r.kalanHakedis)}</span>`
+        : `<span style="color:var(--text-muted);opacity:.5;">—</span>`;
+      const verCell = r.bugunDiscount > 0
+        ? `<span style="color:#d97706;font-weight:700;">${fmt(r.bugunDiscount)}</span>`
+        : `<span style="color:var(--text-muted);opacity:.5;">—</span>`;
+      return `<tr onclick="bugunMusteriTikla('${r.mId}')" style="background:${rowBg};cursor:pointer;">
+        <td style="${TD}font-weight:700;color:${netColor};">${r.ad}${subeLine}</td>
+        <td style="${TD}text-align:right;font-weight:800;color:${netColor};">${netStr}</td>
+        <td style="${TD}text-align:right;">${hakCell}</td>
+        <td style="${TD}text-align:right;">${verCell}</td>
+      </tr>`;
     }).join('');
+    return `<table style="width:100%;border-collapse:collapse;">${thead}<tbody>${tbody}</tbody></table>`;
   }
 
-  // Sol / Sağ bölünme
-  const kendiSube = aktifSube !== 'YÖNETİM' ? aktifSube : null;
   let leftLabel, rightLabel, leftRows, rightRows;
-
   if (kendiSube) {
-    leftLabel  = `<i class="fas fa-store me-1"></i>${kendiSube} <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;margin-left:4px;">Kendi Şuben</span>`;
-    rightLabel = `<i class="fas fa-store me-1"></i>Diğer Şubeler`;
+    leftLabel  = `${kendiSube} <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 6px;margin-left:4px;vertical-align:middle;">Kendi Şuben</span>`;
+    rightLabel = 'Diğer Şubeler';
     leftRows   = buildRows([kendiSube]);
     rightRows  = buildRows(subeler.filter(s => s !== kendiSube));
   } else {
-    leftLabel  = `<i class="fas fa-store me-1"></i>ALSANCAK · ZEYTİNLİK`;
-    rightLabel = `<i class="fas fa-store me-1"></i>KAŞGAR · İTİMAT`;
+    leftLabel  = 'ALSANCAK · ZEYTİNLİK';
+    rightLabel = 'KAŞGAR · İTİMAT';
     leftRows   = buildRows(['ALSANCAK','ZEYTİNLİK']);
     rightRows  = buildRows(['KAŞGAR','İTİMAT']);
   }
 
-  const borderAccent = 'border-bottom:2px solid var(--accent);';
-  const borderGray   = 'border-bottom:2px solid var(--border);';
-  const labelStyle   = 'font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;';
-
+  const LS = 'font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;';
   panel.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
       <div>
-        <div style="${labelStyle}${borderAccent}">${leftLabel}</div>
-        ${renderRows(leftRows)}
+        <div style="${LS}border-bottom:2px solid var(--accent);">${leftLabel}</div>
+        ${renderTable(leftRows, !kendiSube)}
       </div>
       <div>
-        <div style="${labelStyle}${borderGray}">${rightLabel}</div>
-        ${renderRows(rightRows)}
+        <div style="${LS}border-bottom:2px solid var(--border);">${rightLabel}</div>
+        ${renderTable(rightRows, true)}
       </div>
     </div>`;
 }
