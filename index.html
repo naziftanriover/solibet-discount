@@ -525,6 +525,14 @@
         <div id="discount-durumu"></div>
       </div>
     </div>
+    <!-- Bugünün Durumu Paneli -->
+    <div class="card-s mt-0" id="bugun-durumu-kart">
+      <div class="flex-between mb-3">
+        <strong style="font-size:14px;"><i class="fas fa-signal me-2 text-green"></i>Bugünün Durumu</strong>
+        <span class="text-muted-s" style="font-size:12px;" id="bugun-tarih-mini"></span>
+      </div>
+      <div id="bugun-durumu-panel"></div>
+    </div>
     <!-- Canlı Girişler Paneli -->
     <div class="card-s" id="canli-panel" style="display:none; border-left: 4px solid #22c55e;">
       <div class="flex-between mb-3">
@@ -709,11 +717,16 @@
       <button class="btn-s btn-ghost-s" onclick="closeOturumModal()" style="padding: 5px 10px; font-size:12px;">✕</button>
     </div>
     <div id="oturum-modal-icerik"></div>
-    <div class="flex-row mt-4" style="justify-content: flex-end;">
+    <div class="flex-between mt-4" style="flex-wrap:wrap; gap:8px;">
       <button class="btn-s btn-danger-s" id="oturum-sil-btn" onclick="oturumSil()">
         <i class="fas fa-trash"></i> Oturumu Sil
       </button>
-      <button class="btn-s btn-ghost-s" onclick="closeOturumModal()">Kapat</button>
+      <div class="flex-row">
+        <button class="btn-s btn-primary-s" id="oturum-duzenle-btn" onclick="oturumDuzenleAc()" style="display:none;">
+          <i class="fas fa-edit"></i> Düzenle
+        </button>
+        <button class="btn-s btn-ghost-s" onclick="closeOturumModal()">Kapat</button>
+      </div>
     </div>
   </div>
 </div>
@@ -798,6 +811,24 @@
   </div>
 
 </div><!-- /main -->
+
+<!-- OTURUM DÜZENLEME MODAL -->
+<div class="modal-overlay" id="oturum-duzenle-modal" style="z-index:9000;">
+  <div class="modal-box" style="max-width:700px;width:95%;max-height:90vh;overflow-y:auto;">
+    <div class="flex-between mb-3">
+      <div class="modal-title"><i class="fas fa-edit me-2 text-blue"></i>Oturumu Düzenle</div>
+      <button class="btn-s btn-ghost-s" onclick="closeOturumDuzenleModal()" style="padding:5px 10px;font-size:12px;">✕</button>
+    </div>
+    <div id="oturum-duzenle-icerik" style="padding-top:4px;"></div>
+    <div class="flex-between mt-4" style="flex-wrap:wrap;gap:8px;">
+      <div class="flex-row">
+        <button class="btn-s btn-success-s" onclick="oturumDuzenleKaydet()"><i class="fas fa-save"></i> Kaydet</button>
+        <button class="btn-s btn-primary-s" id="devam-et-btn" onclick="oturumDevamEt()" style="display:none;"><i class="fas fa-play"></i> Devam Et</button>
+      </div>
+      <button class="btn-s btn-ghost-s" onclick="closeOturumDuzenleModal()">İptal</button>
+    </div>
+  </div>
+</div>
 
 <!-- TOAST -->
 <div id="toast"><i class="fas fa-check me-2"></i><span id="toast-msg"></span></div>
@@ -1565,6 +1596,8 @@ function renderDashboard() {
 
   // ---- Bugünün Net Durumu ----
   renderBugunNet(filtreOturumlar, data);
+  // ---- Şube bazlı Bugünün Durumu ----
+  renderBugunDurumu();
 }
 
 // ===================== BUGÜNÜN NET DURUMU =====================
@@ -1644,6 +1677,71 @@ function renderBugunNet(filtreOturumlar, data) {
         </tbody>
       </table>
     </div>`;
+}
+
+// ===================== BUGÜNÜN DURUMU PANELİ =====================
+function renderBugunDurumu() {
+  const panel = document.getElementById('bugun-durumu-panel');
+  const tarihEl = document.getElementById('bugun-tarih-mini');
+  if (tarihEl) tarihEl.textContent = new Date().toLocaleDateString('tr-TR', { day:'numeric', month:'long' });
+  if (!panel) return;
+  const data = getData();
+  const bugun = new Date().toISOString().split('T')[0];
+  const subeler = ['ALSANCAK','ZEYTİNLİK','KAŞGAR','İTİMAT'];
+  const bugunOturumlar = data.oturumlar.filter(o => o.tarih === bugun);
+  let html = '';
+  let herhangiVarMi = false;
+  for (const sube of subeler) {
+    const subeOturumlar = bugunOturumlar.filter(o => o.sube === sube);
+    if (subeOturumlar.length === 0) continue;
+    const musteriMap = {};
+    for (const o of subeOturumlar) {
+      if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { net: 0, discount: 0 };
+      for (const b of (o.bahisler || [])) {
+        musteriMap[o.musteriId].net += (b.kazanc || 0) - (b.oynanan || 0);
+      }
+      musteriMap[o.musteriId].discount += o.verilenDiscount || 0;
+    }
+    const karda = [], discountAlan = [];
+    for (const [mId, vals] of Object.entries(musteriMap)) {
+      const m = data.musteriler.find(x => x.id === mId);
+      const ad = m ? m.adSoyad : 'Bilinmiyor';
+      if (vals.net > 0) karda.push({ ad, net: vals.net, mId });
+      if (vals.discount > 0) {
+        const t = getMusteriToplamlar(mId, sube);
+        const h = hesaplaHakedis(t.toplamKayip);
+        discountAlan.push({ ad, discount: vals.discount, hakedis: h.tutar, mId });
+      }
+    }
+    if (karda.length === 0 && discountAlan.length === 0) continue;
+    herhangiVarMi = true;
+    html += `<div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1.5px solid var(--border);">
+        <i class="fas fa-store me-1" style="opacity:.5;"></i>${sube}
+      </div>`;
+    if (karda.length > 0) {
+      html += karda.map(x => `
+        <div class="flex-between" style="padding:5px 0;font-size:13px;">
+          <span><span style="margin-right:5px;">🟢</span><span style="font-weight:600;">${x.ad}</span></span>
+          <span style="font-weight:700;color:var(--green);">+${fmt(x.net)}</span>
+        </div>`).join('');
+    }
+    if (discountAlan.length > 0) {
+      html += discountAlan.map(x => `
+        <div class="flex-between" style="padding:5px 0;font-size:13px;align-items:flex-start;">
+          <span><span style="margin-right:5px;">🎁</span><span style="font-weight:600;">${x.ad}</span></span>
+          <div style="text-align:right;line-height:1.3;">
+            <span style="font-weight:700;color:var(--yellow);">${fmt(x.discount)} verildi</span>
+            <div class="text-muted-s" style="font-size:11px;">Hakediş: ${fmt(x.hakedis)}</div>
+          </div>
+        </div>`).join('');
+    }
+    html += '</div>';
+  }
+  if (!herhangiVarMi) {
+    html = '<div style="text-align:center;padding:18px 0;color:var(--text-muted);font-size:13px;"><i class="fas fa-moon" style="opacity:.3;display:block;font-size:28px;margin-bottom:8px;"></i>Bugün karda veya discountlu müşteri yok</div>';
+  }
+  panel.innerHTML = html;
 }
 
 // Şubeye göre müşteri filtrele (YÖNETİM hepsini görür)
@@ -2733,6 +2831,9 @@ function openOturumModal(oturumId) {
     ${bahisHtml}
   `;
   document.getElementById('oturum-modal').classList.add('show');
+  // Düzenle butonunu yetki kontrolüne göre göster/gizle
+  const duzBtn = document.getElementById('oturum-duzenle-btn');
+  if (duzBtn) duzBtn.style.display = (aktifSube === 'YÖNETİM' || o.sube === aktifSube) ? '' : 'none';
 }
 
 function closeOturumModal() {
@@ -2758,6 +2859,147 @@ function oturumDiscountGuncelle() {
   if (currentPage === 'detay') renderDetay(currentMusteriId);
   else if (currentPage === 'gecmis') renderGecmis();
   else if (currentPage === 'dashboard') renderDashboard();
+}
+
+function oturumDuzenleAc() {
+  if (!currentOturumId) return;
+  closeOturumModal();
+  openOturumDuzenleModal(currentOturumId);
+}
+
+// ===================== OTURUM DÜZENLEME =====================
+let _editOturumId = null;
+let _editBahisler = [];
+
+function openOturumDuzenleModal(oturumId) {
+  const data = getData();
+  const o = data.oturumlar.find(x => x.id === oturumId);
+  if (!o) return;
+  if (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube) {
+    toast('Bu oturumu düzenleme izni yok!', 'error'); return;
+  }
+  _editOturumId = oturumId;
+  _editBahisler = (o.bahisler || []).map(b => ({ ...b }));
+  if (_editBahisler.length === 0) _editBahisler.push({ oynanan: 0, kazanc: 0, kazandi: false });
+  const m = data.musteriler.find(x => x.id === o.musteriId);
+  const devamBtn = document.getElementById('devam-et-btn');
+  if (devamBtn) devamBtn.style.display = (aktifSube !== 'YÖNETİM' && o.sube === aktifSube) ? '' : 'none';
+  document.getElementById('oturum-duzenle-icerik').innerHTML = `
+    <div class="grid-2 mb-3">
+      <div><label>Müşteri</label><div style="font-weight:700;">${m ? m.adSoyad : 'Bilinmiyor'}</div></div>
+      <div><label>Tarih</label><div style="font-weight:700;">${fmtDate(o.tarih)}</div></div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="table-s" style="min-width:460px;">
+        <thead><tr><th>#</th><th>Oynanan (TL)</th><th>Kazanç (TL)</th><th>Sonuç</th><th></th></tr></thead>
+        <tbody id="edit-bahis-tbody"></tbody>
+      </table>
+    </div>
+    <button onclick="editBahisEkle()" class="btn-s btn-ghost-s mt-2" style="font-size:12px;">
+      <i class="fas fa-plus"></i> Satır Ekle
+    </button>
+    <div class="grid-2 mt-3">
+      <div>
+        <label>Verilen Discount (TL)</label>
+        <input type="number" id="edit-discount-input" class="form-control-s" value="${o.verilenDiscount || 0}" min="0">
+      </div>
+      <div>
+        <label>Not</label>
+        <input type="text" id="edit-not-input" class="form-control-s" value="${o.not || ''}" placeholder="Opsiyonel not">
+      </div>
+    </div>
+  `;
+  renderEditBahisTablo();
+  document.getElementById('oturum-duzenle-modal').classList.add('show');
+}
+
+function renderEditBahisTablo() {
+  const tbody = document.getElementById('edit-bahis-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = _editBahisler.map((b, i) => {
+    return `<tr>
+      <td style="color:var(--text-muted);font-size:12px;">${i + 1}</td>
+      <td><input type="number" class="form-control-s" style="width:110px;" value="${b.oynanan || ''}" oninput="editBahisGuncelle(${i},'oynanan',this.value)" min="0" placeholder="0"></td>
+      <td><input type="number" class="form-control-s" style="width:110px;" value="${b.kazanc || ''}" oninput="editBahisGuncelle(${i},'kazanc',this.value)" min="0" placeholder="0"></td>
+      <td>
+        <select class="form-control-s" style="width:110px;" onchange="editBahisGuncelle(${i},'kazandi',this.value)">
+          <option value="false" ${!b.kazandi ? 'selected' : ''}>❌ Kayıp</option>
+          <option value="true" ${b.kazandi ? 'selected' : ''}>✓ Kazandı</option>
+        </select>
+      </td>
+      <td>
+        <button onclick="editBahisSil(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px;" title="Satırı Sil">
+          <i class="fas fa-times-circle"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function editBahisGuncelle(idx, alan, deger) {
+  if (!_editBahisler[idx]) return;
+  if (alan === 'oynanan' || alan === 'kazanc') _editBahisler[idx][alan] = parseFloat(deger) || 0;
+  else if (alan === 'kazandi') _editBahisler[idx][alan] = deger === 'true';
+}
+
+function editBahisEkle() {
+  _editBahisler.push({ oynanan: 0, kazanc: 0, kazandi: false });
+  renderEditBahisTablo();
+}
+
+function editBahisSil(idx) {
+  if (_editBahisler.length <= 1) { toast('En az bir satır olmalı!', 'error'); return; }
+  _editBahisler.splice(idx, 1);
+  renderEditBahisTablo();
+}
+
+function closeOturumDuzenleModal() {
+  document.getElementById('oturum-duzenle-modal').classList.remove('show');
+  _editOturumId = null;
+  _editBahisler = [];
+}
+
+function oturumDuzenleKaydet() {
+  if (!_editOturumId) return;
+  const data = getData();
+  const o = data.oturumlar.find(x => x.id === _editOturumId);
+  if (!o) return;
+  if (aktifSube !== 'YÖNETİM' && o.sube !== aktifSube) {
+    toast('Bu oturumu düzenleme izni yok!', 'error'); return;
+  }
+  const bahisler = _editBahisler.filter(b => (b.oynanan || 0) > 0);
+  if (bahisler.length === 0) { toast('En az bir geçerli satır olmalı!', 'error'); return; }
+  o.bahisler = bahisler;
+  let toplamOynanan = 0, toplamKazanc = 0;
+  for (const b of bahisler) { toplamOynanan += b.oynanan || 0; toplamKazanc += b.kazanc || 0; }
+  o.toplamOynanan = toplamOynanan;
+  o.toplamNet = toplamKazanc - toplamOynanan;
+  o.verilenDiscount = parseFloat(document.getElementById('edit-discount-input').value) || 0;
+  o.not = document.getElementById('edit-not-input').value || '';
+  appData = data;
+  if (db) {
+    _isSaving = true;
+    db.collection('data').doc('main').set(data)
+      .then(() => { _isSaving = false; })
+      .catch(e => { _isSaving = false; toast('Kayıt başarısız!', 'error'); });
+  }
+  closeOturumDuzenleModal();
+  toast('Oturum güncellendi ✓');
+  if (currentPage === 'detay') renderDetay(currentMusteriId);
+  else if (currentPage === 'gecmis') renderGecmis();
+  else if (currentPage === 'dashboard') renderDashboard();
+  else if (currentPage === 'raporlar') renderRaporlar();
+}
+
+function oturumDevamEt() {
+  if (!_editOturumId) return;
+  const data = getData();
+  const o = data.oturumlar.find(x => x.id === _editOturumId);
+  if (!o || o.sube !== aktifSube || aktifSube === 'YÖNETİM') {
+    toast('Bu oturuma devam etme izni yok!', 'error'); return;
+  }
+  oturumDuzenleKaydet();
+  setTimeout(() => { renderGiris(o.musteriId); showPage('giris', o.musteriId); }, 250);
 }
 
 function oturumSil() {
@@ -2903,7 +3145,7 @@ function raporGoster() {
       </tr></thead>
       <tbody>${satirlar.map(s => `
         <tr style="cursor:pointer; font-weight:600;" onclick="const nx=this.nextElementSibling; nx.style.display=nx.style.display==='none'?'':'none'">
-          <td>${s.adSoyad} <i class="fas fa-caret-down" style="font-size:10px;color:var(--text-muted);margin-left:4px;"></i></td>
+          <td><span onclick="event.stopPropagation();showPage('detay','${s.mId}')" style="cursor:pointer;color:var(--accent);" title="Müşteri detayına git">${s.adSoyad}</span> <i class="fas fa-caret-down" style="font-size:10px;color:var(--text-muted);margin-left:4px;"></i></td>
           <td class="text-blue">${fmt(s.ms.oynanan)}</td>
           <td class="${s.ms.gercekNet >= 0 ? 'text-green' : 'text-red'} fw-bold">${s.ms.gercekNet >= 0 ? '+' : ''}${fmt(s.ms.gercekNet)}</td>
           <td class="text-red">${s.ms.gercekKayip > 0 ? fmt(s.ms.gercekKayip) : '<span style="color:var(--green);font-weight:700;">KARDA</span>'}</td>
@@ -2963,7 +3205,7 @@ function gecmisGoster() {
         const net = o.toplamNet || 0;
         return `<tr class="session-row" onclick="openOturumModal('${o.id}')">
           <td>${fmtDate(o.tarih)}</td>
-          <td style="font-weight:600;">${m ? m.adSoyad : 'Bilinmiyor'}</td>
+          <td><span onclick="event.stopPropagation();showPage('detay','${o.musteriId}')" style="font-weight:600;cursor:pointer;color:var(--accent);" title="Müşteri detayına git">${m ? m.adSoyad : 'Bilinmiyor'}</span></td>
           <td><span style="font-size:11px;background:#e0e7ff;color:#3730a3;border-radius:4px;padding:2px 7px;font-weight:600;">${o.sube || '—'}</span></td>
           <td>${(o.bahisler||[]).length}</td>
           <td>${fmt(o.toplamOynanan)}</td>
