@@ -1132,6 +1132,11 @@ async function initFirebase() {
       aktifSube = null;
     }
     if (!aktifSube) {
+      // Şube şifrelerini şube seçici açılmadan önce yükle
+      try {
+        const ayarSnap = await db.collection('data').doc('ayarlar').get();
+        if (ayarSnap.exists) appAyarlar = ayarSnap.data();
+      } catch(e) {}
       if (loadingEl) loadingEl.style.display = 'none';
       if (subeEl)    subeEl.style.display = 'flex';
       // subeSeç() çağrıldığında devam eder

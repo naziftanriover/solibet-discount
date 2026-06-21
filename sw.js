@@ -1,5 +1,5 @@
-const CACHE_NAME = 'solibet-v11';
-const URLS_TO_CACHE = ['/solibet-discount/', '/solibet-discount/index.html'];
+const CACHE_NAME = 'solibet-v16';
+const URLS_TO_CACHE = ['/', '/index.html'];
 
 self.addEventListener('install', event => {
   event.waitUntil(

@@ -9,13 +9,14 @@
   <meta name="apple-mobile-web-app-title" content="Müşteri Kazanç">
   <meta name="theme-color" content="#1a2642">
   <title>SOLİBET Müşteri Takip</title>
-  <link rel="manifest" href="/solibet-discount/manifest.json">
-  <link rel="apple-touch-icon" href="/solibet-discount/icons/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     :root {
@@ -498,6 +499,15 @@
     </div>
     <!-- Şube filtre butonları -->
     <div id="dashboard-sube-filter" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;"></div>
+    <!-- Bugünün Net Durumu Paneli (en üstte) -->
+    <div class="card-s mb-4" id="bugun-net-panel" style="border-left: 4px solid #2563eb;">
+      <div class="flex-between mb-3">
+        <strong style="font-size: 14px;"><i class="fas fa-calendar-day me-2 text-blue"></i>Bugünün Net Durumu</strong>
+        <span class="text-muted-s" id="bugun-net-count"></span>
+      </div>
+      <div id="bugun-net-ozet" style="margin-bottom:10px;"></div>
+      <div id="bugun-net-durumu"></div>
+    </div>
     <div class="grid-4 mb-4" id="dashboard-stats"></div>
     <div class="grid-2">
       <div class="card-s">
@@ -902,6 +912,56 @@ let _unsubLive    = null;
 // Kendi Firestore yazımızın snapshot'ını bastırmak için flag
 let _isSaving = false;
 
+// Eşzamanlı yazımlarda veri kaybını önlemek için: en son sunucudan görülen durum
+let _lastSynced = null;
+let _mergedTmp  = null;
+
+function _clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+// İki kayıt dizisi (id'li) arasındaki farkı çıkar: eklenen/değişen (upsert) ve silinen (delete)
+function _delta(prev, curr) {
+  const p = new Map((prev || []).map(x => [x.id, x]));
+  const c = new Map((curr || []).map(x => [x.id, x]));
+  const upserts = (curr || []).filter(x => !p.has(x.id) || JSON.stringify(p.get(x.id)) !== JSON.stringify(x));
+  const deletes = (prev || []).filter(x => !c.has(x.id)).map(x => x.id);
+  return { upserts, deletes };
+}
+
+// data/main belgesine GÜVENLİ yazım: transaction içinde sunucunun en güncel halini
+// okuyup yalnızca bu cihazın değişikliklerini (delta) uygular. Böylece başka bir şube
+// aynı anda kayıt yaptıysa onun verisi silinmez (last-write-wins yerine kayıt-bazlı merge).
+function persistMain(data) {
+  appData = data;
+  if (!db) return Promise.resolve();
+  const base = _lastSynced || { musteriler: [], oturumlar: [] };
+  const dM = _delta(base.musteriler, data.musteriler);
+  const dO = _delta(base.oturumlar, data.oturumlar);
+  _isSaving = true;
+  const ref = db.collection('data').doc('main');
+  return db.runTransaction(tx => tx.get(ref).then(snap => {
+    const server = snap.exists ? (snap.data() || {}) : {};
+    const mMap = new Map((server.musteriler || []).map(x => [x.id, x]));
+    const oMap = new Map((server.oturumlar || []).map(x => [x.id, x]));
+    dM.upserts.forEach(x => mMap.set(x.id, x));
+    dM.deletes.forEach(id => mMap.delete(id));
+    dO.upserts.forEach(x => oMap.set(x.id, x));
+    dO.deletes.forEach(id => oMap.delete(id));
+    _mergedTmp = Object.assign({}, server, {
+      musteriler: [...mMap.values()],
+      oturumlar:  [...oMap.values()]
+    });
+    tx.set(ref, _mergedTmp);
+  })).then(() => {
+    appData = _mergedTmp;
+    _lastSynced = _clone(appData);
+    _isSaving = false;
+  }).catch(e => {
+    _isSaving = false;
+    console.error('Firestore yazma hatası (data):', e);
+    toast('Kayıt başarısız! İnternet bağlantınızı kontrol edin.', 'error');
+  });
+}
+
 // Canlı taslak debounce zamanlayıcı (subeSeç şubelendirme için yukarı taşındı)
 let liveDraftTimer = null;
 
@@ -920,14 +980,7 @@ function getAyarlar() {
 function saveData(data) {
   appData = data;
   if (db && aktifSube !== 'YÖNETİM') {
-    _isSaving = true;
-    db.collection('data').doc('main').set(data)
-      .then(() => { _isSaving = false; })
-      .catch(e => {
-        _isSaving = false;
-        console.error('Firestore yazma hatası (data):', e);
-        toast('Kayıt başarısız! İnternet bağlantınızı kontrol edin.', 'error');
-      });
+    persistMain(data);
   }
 }
 
@@ -955,6 +1008,7 @@ function setupFirestoreListeners() {
     if (snap.exists) {
       if (_isSaving) return; // kendi yazmamızın geri yansımasını bastır
       appData = snap.data();
+      _lastSynced = _clone(appData);
       // Aktif sayfayı otomatik yenile (cross-branch sync)
       if      (currentPage === 'dashboard')  renderDashboard();
       else if (currentPage === 'musteriler') renderMusteriler();
@@ -1000,7 +1054,7 @@ async function subeSeç(sube) {
         db.collection('data').doc('main').get(),
         db.collection('data').doc('ayarlar').get()
       ]);
-      if (mainSnap.exists) appData    = mainSnap.data();
+      if (mainSnap.exists) { appData = mainSnap.data(); _lastSynced = _clone(appData); }
       if (ayarSnap.exists) appAyarlar = ayarSnap.data();
       setupFirestoreListeners();
     } catch(e) { console.error('Şube bağlantı hatası:', e); }
@@ -1130,6 +1184,15 @@ async function initFirebase() {
   const subeEl    = document.getElementById('sube-secici');
   try {
     firebase.initializeApp(firebaseConfig);
+
+    // App Check (reCAPTCHA v3) — istekleri yalnızca bu uygulamadan geldiğini doğrular.
+    // NOT: Console'da "zorunlu kılma" (enforcement) açılana kadar uygulama normal çalışmaya devam eder.
+    try {
+      firebase.appCheck().activate('6Lf3Qh0tAAAAAL38g49lJ99rT-JfC1f8Wy43AV-G', true);
+    } catch (e) {
+      console.warn('App Check etkinleştirilemedi:', e);
+    }
+
     db = firebase.firestore();
 
     // Şube belirleme — YÖNETİM her zaman şifre ister, localStorage'dan bypass yok
@@ -1139,6 +1202,11 @@ async function initFirebase() {
       aktifSube = null;
     }
     if (!aktifSube) {
+      // Şube şifrelerini şube seçici açılmadan önce yükle
+      try {
+        const ayarSnap = await db.collection('data').doc('ayarlar').get();
+        if (ayarSnap.exists) appAyarlar = ayarSnap.data();
+      } catch(e) {}
       if (loadingEl) loadingEl.style.display = 'none';
       if (subeEl)    subeEl.style.display = 'flex';
       // subeSeç() çağrıldığında devam eder
@@ -1152,7 +1220,7 @@ async function initFirebase() {
       db.collection('data').doc('main').get(),
       db.collection('data').doc('ayarlar').get()
     ]);
-    if (mainSnap.exists) appData    = mainSnap.data();
+    if (mainSnap.exists) { appData = mainSnap.data(); _lastSynced = _clone(appData); }
     if (ayarSnap.exists) appAyarlar = ayarSnap.data();
 
     // Gerçek zamanlı dinleyiciler (cross-branch sync)
@@ -1198,7 +1266,12 @@ function uid() {
 
 // İş günü = standart takvim günü (00:00'da otomatik sıfırlanır)
 function getIsGunu() {
-  return new Date().toISOString().split('T')[0];
+  // Yerel saate göre bugünün tarihi (UTC kayması olmadan) — ör. Türkiye'de gece yarısı sonrası doğru gün
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const g = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${g}`;
 }
 
 // Bir müşterinin belirli bir iş günündeki kayıp + verilen discount toplamı
@@ -1489,6 +1562,88 @@ function renderDashboard() {
       </div>
     `).join('');
   }
+
+  // ---- Bugünün Net Durumu ----
+  renderBugunNet(filtreOturumlar, data);
+}
+
+// ===================== BUGÜNÜN NET DURUMU =====================
+function renderBugunNet(filtreOturumlar, data) {
+  const panel = document.getElementById('bugun-net-durumu');
+  if (!panel) return;
+  const ozetEl = document.getElementById('bugun-net-ozet');
+  const countEl = document.getElementById('bugun-net-count');
+  const bugun = getIsGunu();
+  const bugunOturumlar = filtreOturumlar.filter(o => o.tarih === bugun);
+
+  // Müşteri bazında topla (net kâr/zarar + alınan discount + şube)
+  const map = {};
+  for (const o of bugunOturumlar) {
+    let net = 0;
+    for (const b of (o.bahisler || [])) {
+      if ((b.oynanan || 0) > 0) net += (b.kazanc || 0) - (b.oynanan || 0);
+    }
+    if (!map[o.musteriId]) map[o.musteriId] = { net: 0, discount: 0, sube: o.sube || '' };
+    map[o.musteriId].net += net;
+    map[o.musteriId].discount += o.verilenDiscount || 0;
+    if (o.sube) map[o.musteriId].sube = o.sube;
+  }
+
+  const satirlar = Object.keys(map).map(mid => {
+    const m = data.musteriler.find(x => x.id === mid);
+    const sube = (m && m.sube) ? m.sube : (map[mid].sube || '—');
+    return { ad: m ? m.adSoyad : 'Bilinmiyor', sube, net: map[mid].net, discount: map[mid].discount };
+  }).sort((a, b) => a.net - b.net); // en çok zarardakiler en üstte
+
+  if (countEl) countEl.textContent = satirlar.length ? satirlar.length + ' müşteri' : '';
+
+  if (satirlar.length === 0) {
+    if (ozetEl) ozetEl.innerHTML = '';
+    panel.innerHTML = '<div class="empty-state"><i class="fas fa-calendar-day"></i>Bugün henüz giriş yok</div>';
+    return;
+  }
+
+  const toplamNet = satirlar.reduce((s, x) => s + x.net, 0);        // müşteri perspektifi (kazanç-oynanan)
+  const toplamDiscount = satirlar.reduce((s, x) => s + x.discount, 0);
+  const kardaSayi = satirlar.filter(x => x.net > 0).length;
+  const zarardaSayi = satirlar.filter(x => x.net < 0).length;
+  const sirketBahis = -toplamNet;                    // şirketin bahis sonucu (müşteri net'inin tersi)
+  const sirketNet = sirketBahis - toplamDiscount;    // verilen discount düşülmüş gerçek şirket sonucu
+
+  if (ozetEl) ozetEl.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;align-items:center;">
+      <span class="badge-s ${sirketNet >= 0 ? 'badge-green' : 'badge-red'}" style="font-size:13.5px;font-weight:800;padding:4px 12px;"
+        title="Bahis sonucu (${fmt(sirketBahis)}) − verilen discount (${fmt(toplamDiscount)})">
+        <i class="fas fa-building me-1"></i>ŞİRKET ${sirketNet >= 0 ? 'KÂRDA' : 'ZARARDA'}: ${fmt(Math.abs(sirketNet))}
+      </span>
+      <span class="badge-s badge-yellow">Verilen Discount: ${fmt(toplamDiscount)}</span>
+      <span class="badge-s ${sirketBahis >= 0 ? 'badge-green' : 'badge-red'}">Bahis Sonucu: ${fmt(sirketBahis)}</span>
+      <span class="badge-s badge-green">Kazanan müşteri: ${kardaSayi}</span>
+      <span class="badge-s badge-red">Kaybeden müşteri: ${zarardaSayi}</span>
+    </div>`;
+
+  panel.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="text-align:left;color:var(--text-muted);border-bottom:1px solid var(--border);">
+            <th style="padding:6px 8px;">Müşteri</th>
+            <th style="padding:6px 8px;">Şube</th>
+            <th style="padding:6px 8px;text-align:right;">Net Durum</th>
+            <th style="padding:6px 8px;text-align:right;">Alınan Discount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${satirlar.map(x => `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px;font-weight:600;">${x.ad}</td>
+              <td style="padding:8px;"><span style="font-size:10px;background:#e0e7ff;color:#3730a3;border-radius:4px;padding:1px 6px;font-weight:600;">${x.sube}</span></td>
+              <td style="padding:8px;text-align:right;"><span class="badge-s ${x.net >= 0 ? 'badge-green' : 'badge-red'}">${x.net >= 0 ? 'Kâr ' : 'Zarar '}${fmt(Math.abs(x.net))}</span></td>
+              <td style="padding:8px;text-align:right;font-weight:700;color:#92400e;">${x.discount > 0 ? fmt(x.discount) : '—'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 // Şubeye göre müşteri filtrele (YÖNETİM hepsini görür)
@@ -1571,7 +1726,7 @@ function openMusteriModal(musteriId) {
     document.getElementById('m-adsoyad').value = '';
     document.getElementById('m-telefon').value = '';
     document.getElementById('m-not').value = '';
-    document.getElementById('m-kayittarih').value = new Date().toISOString().split('T')[0];
+    document.getElementById('m-kayittarih').value = getIsGunu();
     document.querySelector('#musteri-modal .modal-title').innerHTML = '<i class="fas fa-user-plus me-2 text-blue"></i>Yeni Müşteri Ekle';
     document.querySelector('#musteri-modal .btn-primary-s').innerHTML = '<i class="fas fa-save"></i> Kaydet';
   }
@@ -1603,7 +1758,7 @@ function musteriKaydet() {
     data.musteriler.push({
       id: uid(), adSoyad: ad,
       telefon: document.getElementById('m-telefon').value.trim(),
-      kayitTarih: document.getElementById('m-kayittarih').value || new Date().toISOString().split('T')[0],
+      kayitTarih: document.getElementById('m-kayittarih').value || getIsGunu(),
       not: document.getElementById('m-not').value.trim(),
       sube: aktifSube || ''
     });
@@ -1823,7 +1978,7 @@ function ekDiscountEkle(musteriId) {
   // YÖNETİM müşterinin kendi şubesine yazsın, sube kullanıcısı kendi şubesine yazsın
   const oturumSube = (aktifSube === 'YÖNETİM') ? (m.sube || '') : (aktifSube || '');
   data.oturumlar.push({
-    id: uid(), musteriId, tarih: new Date().toISOString().split('T')[0],
+    id: uid(), musteriId, tarih: getIsGunu(),
     bahisler: [], toplamOynanan: 0, toplamNet: 0,
     verilenDiscount: val, not: 'Manuel discount eklendi',
     sube: oturumSube
@@ -2596,10 +2751,7 @@ function oturumDiscountGuncelle() {
   o.verilenDiscount = yeniVal;
   appData = data;
   if (db) {
-    _isSaving = true;
-    db.collection('data').doc('main').set(data)
-      .then(() => { _isSaving = false; })
-      .catch(e => { _isSaving = false; toast('Kayıt başarısız!', 'error'); });
+    persistMain(data);
   }
   closeOturumModal();
   toast('Discount güncellendi ✓');
@@ -2620,10 +2772,7 @@ function oturumSil() {
   data.oturumlar = data.oturumlar.filter(o => o.id !== currentOturumId);
   appData = data;
   if (db) {
-    _isSaving = true;
-    db.collection('data').doc('main').set(data)
-      .then(() => { _isSaving = false; })
-      .catch(e => { _isSaving = false; toast('Kayıt başarısız!', 'error'); });
+    persistMain(data);
   }
   closeOturumModal();
   toast('Oturum silindi');
@@ -2954,7 +3103,24 @@ window.addEventListener('DOMContentLoaded', () => {
   // Firebase başlat — hazır olunca renderDashboard() çağrılır
   initFirebase();
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/solibet-discount/sw.js').catch(() => {});
+    // Otomatik güncelleme: yeni sürüm yayınlanınca cihaz kendiliğinden (bir kez) yenilenir.
+    let _swReloading = false;
+    let _hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swReloading) return;
+      // İlk yüklemede (önceden kontrolör yokken) yenileme gereksiz
+      if (!_hadController) { _hadController = true; return; }
+      _swReloading = true;
+      window.location.reload();
+    });
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      reg.update();
+      // Sekme öne geldiğinde ve periyodik olarak güncellemeyi kontrol et
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update();
+      });
+      setInterval(() => reg.update(), 30 * 60 * 1000);
+    }).catch(() => {});
   }
 
   // Sayfa kapatılınca Firestore listener'ları temizle
