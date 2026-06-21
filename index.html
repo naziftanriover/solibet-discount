@@ -581,6 +581,9 @@
         <button class="btn-s btn-danger-s" onclick="musteriSil(currentMusteriId)">
           <i class="fas fa-trash"></i> Müşteriyi Sil
         </button>
+        <button class="btn-s btn-ghost-s" id="btn-baglama" style="display:none;" onclick="openMusteriBaglamaModal(currentMusteriId)">
+          <i class="fas fa-link"></i> Bağla
+        </button>
       </div>
     </div>
     <div class="grid-4 mb-4" id="detay-stats"></div>
@@ -597,6 +600,7 @@
       <strong style="font-size: 14px; display:block; margin-bottom: 14px;">Bahis Geçmişi</strong>
       <div id="detay-gecmis"></div>
     </div>
+    <div class="card-s mt-3" id="detay-baglantilar-kart" style="display:none;"></div>
   </div>
 
   <!-- ============ GÜNLÜK GİRİŞ ============ -->
@@ -811,6 +815,23 @@
   </div>
 
 </div><!-- /main -->
+
+<!-- MÜŞTERİ BAĞLAMA MODAL -->
+<div class="modal-overlay" id="musteri-baglama-modal" style="z-index:9100;">
+  <div class="modal-box" style="max-width:480px;width:95%;">
+    <div class="flex-between mb-3">
+      <div class="modal-title"><i class="fas fa-link me-2 text-blue"></i>Müşteri Bağla</div>
+      <button class="btn-s btn-ghost-s" onclick="closeMusteriBaglamaModal()" style="padding:5px 10px;font-size:12px;">✕</button>
+    </div>
+    <div id="musteri-baglama-icerik"></div>
+    <div class="flex-between mt-4" style="gap:10px;">
+      <button class="btn-s btn-primary-s" onclick="musteriBasglamaKaydet()" style="flex:1;">
+        <i class="fas fa-link"></i> Bağla
+      </button>
+      <button class="btn-s btn-ghost-s" onclick="closeMusteriBaglamaModal()" style="flex:1;">İptal</button>
+    </div>
+  </div>
+</div>
 
 <!-- OTURUM DÜZENLEME MODAL -->
 <div class="modal-overlay" id="oturum-duzenle-modal" style="z-index:9000;">
@@ -1681,15 +1702,8 @@ function renderBugunNet(filtreOturumlar, data) {
 
 // ===================== BUGÜNÜN DURUMU — CLICK HELPER =====================
 function bugunMusteriTikla(mId) {
-  if (aktifSube === 'YÖNETİM') {
-    showPage('gecmis');
-    setTimeout(() => {
-      const sel = document.getElementById('gecmis-musteri-filter');
-      if (sel) { sel.value = mId; gecmisGoster(); }
-    }, 60);
-  } else {
-    showPage('giris', mId);
-  }
+  // Tüm kullanıcılar için detay (Bahis Geçmişi) sayfasına git
+  showPage('detay', mId);
 }
 
 // ===================== BUGÜNÜN DURUMU PANELİ =====================
@@ -1711,6 +1725,7 @@ function renderBugunDurumu() {
 
   const kendiSube = aktifSube !== 'YÖNETİM' ? aktifSube : null;
 
+  // SADECE BUGÜNÜN verisi: net kazanç/kayıp + bugün verilen discount
   function buildRows(subeList) {
     const rows = [];
     for (const sube of subeList) {
@@ -1718,58 +1733,44 @@ function renderBugunDurumu() {
       if (!subeOturumlar.length) continue;
       const musteriMap = {};
       for (const o of subeOturumlar) {
-        if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { net: 0, bugunDiscount: 0 };
+        if (!musteriMap[o.musteriId]) musteriMap[o.musteriId] = { net: 0, disc: 0 };
         for (const b of (o.bahisler || [])) {
           musteriMap[o.musteriId].net += (b.kazanc || 0) - (b.oynanan || 0);
         }
-        musteriMap[o.musteriId].bugunDiscount += o.verilenDiscount || 0;
+        musteriMap[o.musteriId].disc += o.verilenDiscount || 0;
       }
       for (const [mId, vals] of Object.entries(musteriMap)) {
         const m = data.musteriler.find(x => x.id === mId);
-        const tumOturumlar = data.oturumlar.filter(o => o.musteriId === mId && o.sube === sube);
-        let cumNet = 0, cumVerilen = 0;
-        for (const o of tumOturumlar) {
-          cumVerilen += o.verilenDiscount || 0;
-          for (const b of (o.bahisler || [])) cumNet += (b.kazanc||0) - (b.oynanan||0);
-        }
-        const cumKayip = Math.max(0, -cumNet);
-        const h = hesaplaHakedis(cumKayip);
-        // DÜZELTME: brüt değil, KALAN hakediş (kazanılan - verilmiş)
-        const kalanHakedis = Math.max(0, h.tutar - cumVerilen);
-        rows.push({ ad: m ? m.adSoyad : 'Bilinmiyor', mId, sube, net: vals.net, kalanHakedis, bugunDiscount: vals.bugunDiscount });
+        rows.push({ ad: m ? m.adSoyad : 'Bilinmiyor', mId, sube, net: vals.net, disc: vals.disc });
       }
     }
     return rows;
   }
 
+  // Sade tablo: Müşteri | Net Bugün | Disc. Bugün
   const TH = 'padding:5px 8px;background:rgba(0,0,0,.04);border:1px solid var(--border);font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;';
-  const TD = 'padding:6px 8px;border:1px solid var(--border);font-size:12.5px;';
+  const TD = 'padding:7px 8px;border:1px solid var(--border);font-size:13px;';
 
   function renderTable(rows, showSube) {
     if (!rows.length) return '<div style="color:var(--text-muted);font-size:12px;padding:12px 4px;text-align:center;opacity:.7;">Bugün giriş yok</div>';
     const thead = `<thead><tr>
       <th style="${TH}text-align:left;">Müşteri${showSube ? ' / Şube' : ''}</th>
-      <th style="${TH}text-align:right;">Net</th>
-      <th style="${TH}text-align:right;">Hak.Kalan</th>
-      <th style="${TH}text-align:right;">Verilen</th>
+      <th style="${TH}text-align:right;">Net Bugün</th>
+      <th style="${TH}text-align:right;">Disc. Bugün</th>
     </tr></thead>`;
     const tbody = rows.map(r => {
       const isKarda = r.net > 0;
       const netColor = isKarda ? 'var(--green)' : 'var(--red)';
       const rowBg = isKarda ? 'rgba(34,197,94,.06)' : 'rgba(239,68,68,.06)';
       const netStr = (isKarda ? '+' : '') + fmt(r.net);
-      const subeLine = showSube ? `<div style="font-size:10px;font-weight:700;color:#4f46e5;margin-top:2px;letter-spacing:.3px;">${r.sube}</div>` : '';
-      const hakCell = r.kalanHakedis > 0
-        ? `<span style="color:#92400e;font-weight:700;">${fmt(r.kalanHakedis)}</span>`
-        : `<span style="color:var(--text-muted);opacity:.5;">—</span>`;
-      const verCell = r.bugunDiscount > 0
-        ? `<span style="color:#d97706;font-weight:700;">${fmt(r.bugunDiscount)}</span>`
-        : `<span style="color:var(--text-muted);opacity:.5;">—</span>`;
+      const subeLine = showSube ? `<div style="font-size:10px;font-weight:700;color:#4f46e5;margin-top:2px;">${r.sube}</div>` : '';
+      const discCell = r.disc > 0
+        ? `<span style="color:#d97706;font-weight:700;">${fmt(r.disc)}</span>`
+        : `<span style="color:var(--text-muted);opacity:.4;">—</span>`;
       return `<tr onclick="bugunMusteriTikla('${r.mId}')" style="background:${rowBg};cursor:pointer;">
         <td style="${TD}font-weight:700;color:${netColor};">${r.ad}${subeLine}</td>
         <td style="${TD}text-align:right;font-weight:800;color:${netColor};">${netStr}</td>
-        <td style="${TD}text-align:right;">${hakCell}</td>
-        <td style="${TD}text-align:right;">${verCell}</td>
+        <td style="${TD}text-align:right;">${discCell}</td>
       </tr>`;
     }).join('');
     return `<table style="width:100%;border-collapse:collapse;">${thead}<tbody>${tbody}</tbody></table>`;
@@ -1947,6 +1948,10 @@ function renderDetay(musteriId) {
   document.getElementById('detay-baslik').textContent = m.adSoyad;
   document.getElementById('detay-alt').textContent = `${m.telefon || ''} · Kayıt: ${fmtDate(m.kayitTarih)}`;
 
+  // Bağla butonu — sadece YÖNETİM görür
+  const btnBag = document.getElementById('btn-baglama');
+  if (btnBag) btnBag.style.display = aktifSube === 'YÖNETİM' ? '' : 'none';
+
   const t = getMusteriToplamlar(musteriId);
   const h = hesaplaHakedis(t.toplamKayip);
   const kalan = h.tutar - t.toplamVerilenDiscount;
@@ -2098,6 +2103,165 @@ function renderDetay(musteriId) {
     }
     document.getElementById('detay-gecmis').innerHTML = html;
   }
+
+  // ---- Bağlı Müşteriler Kartı ----
+  renderDetayBaglantilar(musteriId, data);
+}
+
+function renderDetayBaglantilar(musteriId, data) {
+  const kart = document.getElementById('detay-baglantilar-kart');
+  if (!kart) return;
+  const m = data.musteriler.find(x => x.id === musteriId);
+  const linkedIds = (m && m.linkedIds) ? m.linkedIds.filter(id => data.musteriler.find(x => x.id === id)) : [];
+  const parentM = data.musteriler.find(x => x.id !== musteriId && (x.linkedIds || []).includes(musteriId));
+  if (linkedIds.length === 0 && !parentM) { kart.style.display = 'none'; return; }
+  kart.style.display = '';
+  const allLinked = [...linkedIds];
+  if (parentM) allLinked.push(parentM.id);
+
+  let html = '<div style="font-weight:700;font-size:14px;margin-bottom:14px;"><i class="fas fa-link me-2 text-blue"></i>Bağlı Müşteriler</div>';
+  let kombineKayip = 0, kombineVerilen = 0, kombineOynanan = 0;
+  const selfT = getMusteriToplamlar(musteriId);
+  kombineOynanan += selfT.toplamOynanan;
+  kombineKayip   += selfT.toplamKayip;
+  kombineVerilen += selfT.toplamVerilenDiscount;
+
+  for (const lid of allLinked) {
+    const lm = data.musteriler.find(x => x.id === lid);
+    if (!lm) continue;
+    const lt = getMusteriToplamlar(lid);
+    kombineOynanan += lt.toplamOynanan;
+    kombineKayip   += lt.toplamKayip;
+    kombineVerilen += lt.toplamVerilenDiscount;
+    const isParent = parentM && parentM.id === lid;
+    html += `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;">
+          <span style="font-weight:700;cursor:pointer;color:var(--accent);" onclick="showPage('detay','${lid}')">${lm.adSoyad}</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">${lm.sube||''}</span>
+          ${isParent ? '<span style="font-size:10px;background:#4f46e5;color:#fff;border-radius:4px;padding:1px 5px;margin-left:4px;">Ana kayıt</span>' : ''}
+        </div>
+        <div style="text-align:right;min-width:80px;">
+          <div style="font-size:11px;color:var(--text-muted);">Net</div>
+          <div style="font-weight:700;color:${lt.toplamNet >= 0 ? 'var(--green)' : 'var(--red)'};">${fmt(lt.toplamNet)}</div>
+        </div>
+        <div style="text-align:right;min-width:80px;">
+          <div style="font-size:11px;color:var(--text-muted);">Verilen Disc.</div>
+          <div style="font-weight:700;color:var(--yellow);">${fmt(lt.toplamVerilenDiscount)}</div>
+        </div>
+        ${aktifSube === 'YÖNETİM' && !isParent ? `<button onclick="musteriBasglamaKaldir('${musteriId}','${lid}')" class="btn-s btn-danger-s" style="font-size:11px;padding:4px 8px;"><i class="fas fa-times"></i></button>` : ''}
+        ${aktifSube === 'YÖNETİM' && isParent ? `<button onclick="musteriBasglamaKaldir('${lid}','${musteriId}')" class="btn-s btn-danger-s" style="font-size:11px;padding:4px 8px;"><i class="fas fa-times"></i></button>` : ''}
+      </div>`;
+  }
+
+  const kombineH = hesaplaHakedis(kombineKayip);
+  const kombineKalan = kombineH.tutar - kombineVerilen;
+  html += `
+    <div style="margin-top:14px;padding:12px;background:rgba(79,70,229,.07);border-radius:8px;border:1px solid rgba(79,70,229,.2);">
+      <div style="font-size:12px;font-weight:700;color:#4f46e5;margin-bottom:8px;">BİRLEŞİK ÖZET</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <div><span style="font-size:11px;color:var(--text-muted);">Toplam Kayıp</span><br><strong style="color:var(--red);">${fmt(kombineKayip)}</strong></div>
+        <div><span style="font-size:11px;color:var(--text-muted);">Toplam Oynanan</span><br><strong>${fmt(kombineOynanan)}</strong></div>
+        <div><span style="font-size:11px;color:var(--text-muted);">Hakediş (%${kombineH.band||0})</span><br><strong style="color:var(--yellow);">${fmt(kombineH.tutar)}</strong></div>
+        <div><span style="font-size:11px;color:var(--text-muted);">Verilen Disc.</span><br><strong style="color:var(--red);">${fmt(kombineVerilen)}</strong></div>
+        <div><span style="font-size:11px;color:var(--text-muted);">Kalan Hakediş</span><br><strong style="color:var(--accent);">${fmt(kombineKalan)}</strong></div>
+      </div>
+    </div>`;
+  kart.innerHTML = html;
+}
+
+// ===================== MÜŞTERİ BAĞLAMA =====================
+let _baglamaPrimaryId = null;
+let _baglamaSecondaryId = null;
+
+function openMusteriBaglamaModal(primaryId) {
+  if (aktifSube !== 'YÖNETİM') return;
+  _baglamaPrimaryId = primaryId;
+  _baglamaSecondaryId = null;
+  const data = getData();
+  const primary = data.musteriler.find(m => m.id === primaryId);
+  if (!primary) return;
+  const linkedIds = primary.linkedIds || [];
+  const parentIds = data.musteriler.filter(m => m.id !== primaryId && (m.linkedIds || []).includes(primaryId)).map(m => m.id);
+  const allLinkedIds = [...linkedIds, ...parentIds];
+  const diger = data.musteriler.filter(m => m.id !== primaryId && !allLinkedIds.includes(m.id));
+
+  let mevcutHtml = '';
+  if (allLinkedIds.length > 0) {
+    mevcutHtml = `<div class="mb-3">
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;letter-spacing:.5px;">MEVCUT BAĞLANTILAR</div>
+      ${allLinkedIds.map(lid => {
+        const lm = data.musteriler.find(x => x.id === lid);
+        if (!lm) return '';
+        const isParent = parentIds.includes(lid);
+        return `<div class="flex-between" style="padding:7px 0;border-bottom:1px solid var(--border);">
+          <div>
+            <span style="font-weight:600;">${lm.adSoyad}</span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">${lm.sube||''}</span>
+            ${isParent ? '<span style="font-size:10px;background:#4f46e5;color:#fff;border-radius:4px;padding:1px 5px;margin-left:4px;">Ana kayıt</span>' : ''}
+          </div>
+          <button onclick="${isParent ? `musteriBasglamaKaldir('${lid}','${primaryId}')` : `musteriBasglamaKaldir('${primaryId}','${lid}')`}" class="btn-s btn-danger-s" style="font-size:11px;padding:3px 8px;"><i class="fas fa-times"></i> Kaldır</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  const selectHtml = diger.length > 0
+    ? `<div><label>Bağlanacak Müşteri</label>
+       <select id="baglama-hedef-select" class="form-control-s" onchange="_baglamaSecondaryId=this.value">
+         <option value="">— Müşteri seçin —</option>
+         ${diger.map(m => `<option value="${m.id}">${m.adSoyad} (${m.sube||'?'})</option>`).join('')}
+       </select></div>`
+    : `<div style="font-size:13px;color:var(--text-muted);padding:8px 0;">Bağlanabilecek başka müşteri kalmadı.</div>`;
+
+  document.getElementById('musteri-baglama-icerik').innerHTML = `
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+      <strong style="color:var(--text);">${primary.adSoyad}</strong> müşterisini başka bir kayıtla bağla. Detay sayfasında birleşik hakediş gösterilir.
+    </p>
+    ${mevcutHtml}
+    ${selectHtml}`;
+
+  document.getElementById('musteri-baglama-modal').classList.add('show');
+}
+
+function closeMusteriBaglamaModal() {
+  document.getElementById('musteri-baglama-modal').classList.remove('show');
+  _baglamaPrimaryId = null;
+  _baglamaSecondaryId = null;
+}
+
+function musteriBasglamaKaydet() {
+  if (!_baglamaPrimaryId || !_baglamaSecondaryId) { toast('Bağlanacak müşteriyi seçin!', 'error'); return; }
+  const data = getData();
+  const primary = data.musteriler.find(m => m.id === _baglamaPrimaryId);
+  if (!primary) return;
+  if (!primary.linkedIds) primary.linkedIds = [];
+  if (primary.linkedIds.includes(_baglamaSecondaryId)) { toast('Bu müşteri zaten bağlı!', 'error'); return; }
+  primary.linkedIds.push(_baglamaSecondaryId);
+  appData = data;
+  _isSaving = true;
+  db.collection('data').doc('main').set(data)
+    .then(() => { _isSaving = false; toast('Müşteri bağlandı ✓'); closeMusteriBaglamaModal(); renderDetay(primary.id); })
+    .catch(e => { _isSaving = false; console.error(e); toast('Kayıt hatası!', 'error'); });
+}
+
+function musteriBasglamaKaldir(primaryId, linkedId) {
+  const data = getData();
+  const primary = data.musteriler.find(m => m.id === primaryId);
+  if (!primary || !primary.linkedIds) return;
+  primary.linkedIds = primary.linkedIds.filter(x => x !== linkedId);
+  appData = data;
+  _isSaving = true;
+  db.collection('data').doc('main').set(data)
+    .then(() => {
+      _isSaving = false;
+      toast('Bağlantı kaldırıldı');
+      if (document.getElementById('musteri-baglama-modal').classList.contains('show')) {
+        openMusteriBaglamaModal(primaryId);
+      }
+      renderDetay(currentMusteriId);
+    })
+    .catch(e => { _isSaving = false; console.error(e); toast('Hata!', 'error'); });
 }
 
 function musteriSil(musteriId) {
